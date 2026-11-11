@@ -1,0 +1,86 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+/node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+/dist/
+/.turbo/
+/playwright-report/
+/test-results/
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Local environment files; commit only the documented, non-secret template.
+.env*
+!.env.example
+
+# Secrets and local credentials
+.aws/
+.ssh/
+.kube/
+secrets/
+credentials/
+.npmrc
+.netrc
+credentials*.json
+service-account*.json
+*.key
+*.p12
+*.pfx
+*.keystore
+id_rsa*
+id_ed25519*
+
+# Raw satellite data and archives do not belong in the frontend repository.
+# Official reviewed boundary/block GeoJSON and documentation remain trackable.
+/data/raw/
+/datasets/
+/modis/
+/viirs/
+*.csv
+*.parquet
+*.feather
+*.arrow
+*.hdf
+*.h5
+*.nc
+*.tif
+*.tiff
+*.zip
+*.tar
+*.gz
+*.7z
+*.rar
+*.sqlite*
+*.db
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
