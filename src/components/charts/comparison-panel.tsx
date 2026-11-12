@@ -20,6 +20,7 @@ import {
 import { MonthlyTimelineChart } from "@/components/charts/monthly-timeline-chart";
 import { SeasonalCycleChart } from "@/components/charts/seasonal-cycle-chart";
 import { AnnualTotalsChart } from "@/components/charts/annual-totals-chart";
+import { ExportButton } from "@/components/csv/export-button";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -80,36 +81,39 @@ export function ComparisonPanel({ seasonal = false }: Props) {
             </CardDescription>
           </div>
 
-          {/* Scope Selector (Statewide vs Selected Block) */}
-          {selectedBlock && (
-            <div className="flex items-center rounded-lg border border-border bg-muted/40 p-1 text-xs">
-              <button
-                type="button"
-                onClick={() => setViewScope("statewide")}
-                className={cn(
-                  "rounded-md px-3 py-1 font-medium transition-colors",
-                  activeScope === "statewide"
-                    ? "bg-card text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                Statewide Pará
-              </button>
-              <button
-                type="button"
-                onClick={() => setViewScope("block")}
-                className={cn(
-                  "flex items-center gap-1.5 rounded-md px-3 py-1 font-medium transition-colors",
-                  activeScope === "block"
-                    ? "bg-card text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                <MapPin className="size-3 text-primary" />
-                Block {selectedBlock}
-              </button>
-            </div>
-          )}
+          {/* Scope Selector & CSV Export */}
+          <div className="flex flex-wrap items-center gap-2">
+            {selectedBlock && (
+              <div className="flex items-center rounded-lg border border-border bg-muted/40 p-1 text-xs">
+                <button
+                  type="button"
+                  onClick={() => setViewScope("statewide")}
+                  className={cn(
+                    "rounded-md px-3 py-1 font-medium transition-colors",
+                    activeScope === "statewide"
+                      ? "bg-card text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  Statewide Pará
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewScope("block")}
+                  className={cn(
+                    "flex items-center gap-1.5 rounded-md px-3 py-1 font-medium transition-colors",
+                    activeScope === "block"
+                      ? "bg-card text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  <MapPin className="size-3 text-primary" />
+                  Block {selectedBlock}
+                </button>
+              </div>
+            )}
+            <ExportButton />
+          </div>
         </div>
 
         {/* Tab Navigation */}

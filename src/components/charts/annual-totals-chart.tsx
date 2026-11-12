@@ -148,7 +148,14 @@ export function AnnualTotalsChart({ data, scope, blockId }: Props) {
                       {pt.year === 2002 && (
                         <div className="mt-1 flex items-start gap-1 rounded bg-amber-500/20 p-1 text-[10px] text-amber-200">
                           <AlertCircle className="size-3 shrink-0 mt-0.5" />
-                          <span>Partial year: Aqua MODIS launched July 2002 (Jan–Jun unobserved).</span>
+                          <span>Partial year: Aqua MODIS launched July 2002 (Jan–Jun unobserved; July first operational month).</span>
+                        </div>
+                      )}
+
+                      {pt.year === 2012 && (
+                        <div className="mt-1 flex items-start gap-1 rounded bg-amber-500/20 p-1 text-[10px] text-amber-200">
+                          <AlertCircle className="size-3 shrink-0 mt-0.5" />
+                          <span>Transition year: S-NPP VIIRS operational from Jan 20 (Jan 1–19 unobserved).</span>
                         </div>
                       )}
 

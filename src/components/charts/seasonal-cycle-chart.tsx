@@ -159,14 +159,20 @@ export function SeasonalCycleChart({ data, scope, blockId }: Props) {
         </ResponsiveContainer>
       </div>
 
-      {/* Seasonal Insights */}
-      <div className="rounded-lg border border-border bg-card/40 p-3 text-xs leading-relaxed text-muted-foreground">
+      {/* Scientific Data Provenance & Limitations */}
+      <div className="rounded-lg border border-border bg-card/40 p-3 text-xs leading-relaxed text-muted-foreground space-y-1.5">
         <p className="flex items-start gap-2">
           <Info className="mt-0.5 size-4 shrink-0 text-primary" />
           <span>
-            <strong>Climatological consistency:</strong> The NB2 v1.0 model includes month fixed effects (referenced to January), preserving the true physical Amazonian fire cycle. Detections rise sharply in July–August, peak in August–October, and decline as the wet season returns in December.
+            <strong>Observational caveat:</strong> These charts illustrate available observed and estimated detection patterns, subject to sensor differences and incomplete observation coverage. Seasonal patterns reflect the empirical fixed-effect estimates (&beta;<sub>month</sub>) fitted to the 2012–2020 overlap, but visual consistency does not constitute independent validation of true historical fire activity without historical VIIRS ground truth.
           </span>
         </p>
+        <div className="text-[11px] text-muted-foreground/80 pl-6 space-y-0.5">
+          <p>• <strong>July 2002:</strong> Partially covered (Aqua MODIS commissioned July 2002; first active operational month).</p>
+          <p>• <strong>January 2012:</strong> Partial VIIRS month (S-NPP archive began Jan 20; days 1–19 unobserved; excluded from model calibration).</p>
+          <p>• <strong>Sensor eras:</strong> 2003–2011 represents Aqua MODIS-derived NB2 estimates; 2012–2020 represents direct S-NPP VIIRS observations.</p>
+          <p>• <strong>Historical coverage:</strong> Satellite orbital gaps and cloud obscuration are unadjusted; missing records are preserved as NULL, never zero.</p>
+        </div>
       </div>
     </div>
   );

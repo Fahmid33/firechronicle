@@ -9,6 +9,7 @@ import { ScienceStatus } from "@/components/ui/science-status";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { useStatewideTimeSeries, useBlocksSummary } from "@/lib/api/queries";
+import { ExportButton } from "@/components/csv/export-button";
 
 export function AnalysisPanel() {
   const year = useSelection((s) => s.year);
@@ -190,6 +191,10 @@ export function AnalysisPanel() {
             </div>
           </dl>
         </details>
+
+        <div className="border-t border-border pt-4">
+          <ExportButton className="w-full justify-center h-10" />
+        </div>
       </div>
       <Link
         href="/methodology"

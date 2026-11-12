@@ -235,9 +235,15 @@ export function MonthlyTimelineChart({ data, scope, blockId }: Props) {
                             </div>
                           )}
 
+                          {pt.period === "2002-07" && (
+                            <div className="mt-1 rounded bg-amber-500/20 p-1 text-[10px] text-amber-200">
+                              ⚠ Partial coverage: Aqua MODIS commissioned July 2002; first operational month.
+                            </div>
+                          )}
+
                           {pt.status === "partial_observation" && (
                             <div className="mt-1 rounded bg-amber-500/20 p-1 text-[10px] text-amber-200">
-                              ⚠ Partial observation (VIIRS archive began Jan 20; days 1–19 unobserved).
+                              ⚠ Partial observation (VIIRS archive began Jan 20; days 1–19 unobserved; excluded from calibration).
                             </div>
                           )}
                         </>
@@ -275,7 +281,7 @@ export function MonthlyTimelineChart({ data, scope, blockId }: Props) {
         </div>
 
         <span className="text-[11px] text-muted-foreground/70">
-          Jan–Jun 2002 unsupported (preserved NULL) · Jan 2012 partial observation
+          Jul 2002 partial · Jan 2012 partial · Jan–Jun 2002 unsupported (NULL preserved, not zero)
         </span>
       </div>
     </div>

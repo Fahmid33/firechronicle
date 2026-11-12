@@ -16,6 +16,8 @@ type Props = {
   data: ReturnType<typeof resolveMapData>;
   selectedBlock: string | null;
   onSelectBlock: (blockId: string) => void;
+  blockValues?: Record<string, number | null> | null;
+  era?: "estimated" | "observed" | null;
 };
 
 export default function ParaMap(props: Props) {
@@ -66,7 +68,7 @@ export default function ParaMap(props: Props) {
       };
       const onLoad = () => {
         if (disposed) return;
-        syncMapLayers(map, latest.current.data, colors);
+        syncMapLayers(map, latest.current.data, colors, latest.current.blockValues, latest.current.era);
         highlightBlock(map, MAP_IDS.selection, latest.current.selectedBlock);
         // Apply once after style loading and resize, even without a boundary.
         // Subsequent data/selection updates must not reset a user's camera.
@@ -144,13 +146,19 @@ export default function ParaMap(props: Props) {
     const map = mapRef.current;
     if (!map || status !== "ready" || !map.getLayer(MAP_IDS.boundaryFill)) return;
     const styles = getComputedStyle(document.documentElement);
-    syncMapLayers(map, props.data, {
-      green: styles.getPropertyValue("--amazon").trim(),
-      amber: styles.getPropertyValue("--hotspot").trim(),
-      text: styles.getPropertyValue("--foreground").trim(),
-      border: styles.getPropertyValue("--input").trim(),
-    });
-  }, [props.data, status]);
+    syncMapLayers(
+      map,
+      props.data,
+      {
+        green: styles.getPropertyValue("--amazon").trim(),
+        amber: styles.getPropertyValue("--hotspot").trim(),
+        text: styles.getPropertyValue("--foreground").trim(),
+        border: styles.getPropertyValue("--input").trim(),
+      },
+      props.blockValues,
+      props.era
+    );
+  }, [props.data, props.blockValues, props.era, status]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -182,7 +190,16 @@ export default function ParaMap(props: Props) {
     {status === "loading" && <div className="pointer-events-none absolute top-3 left-3 max-w-[calc(100%-96px)] rounded-lg border border-border bg-card px-3 py-2 text-xs text-muted-foreground" role="status">Loading contextual basemap…</div>}
     {status === "error" && <div className="absolute inset-0 flex items-center justify-center bg-background/90 p-4"><DataState state="error" title="The basemap is unavailable." description={issue ?? "Map rendering could not start."} onRetry={retryMap} /></div>}
     {issue && status !== "error" && <div className="absolute top-3 left-3 max-w-[calc(100%-96px)] rounded-lg border border-border bg-card p-3 text-xs"><p className="flex gap-2 text-muted-foreground" role="alert"><AlertCircle className="size-4 shrink-0 text-destructive" aria-hidden="true" />{issue}</p><Button variant="ghost" className="mt-2 h-11" onClick={retryMap}><RotateCcw />Retry basemap</Button></div>}
-    {hoveredBlock && status === "ready" && <div className="pointer-events-none absolute top-3 left-3 max-w-[calc(100%-96px)] rounded-md border border-border bg-card px-3 py-2 font-mono text-xs">Block {hoveredBlock}</div>}
+    {hoveredBlock && status === "ready" && (
+      <div className="pointer-events-none absolute top-3 left-3 max-w-[calc(100%-96px)] rounded-md border border-border bg-card/95 px-3 py-2 font-mono text-xs shadow-md">
+        <div className="font-semibold text-foreground">Block {hoveredBlock}</div>
+        <div className="text-[11px] text-muted-foreground">
+          {props.blockValues && props.blockValues[hoveredBlock] !== undefined && props.blockValues[hoveredBlock] !== null
+            ? `${Math.round(props.blockValues[hoveredBlock]!).toLocaleString()} detections (${props.era === "estimated" ? "Estimated VIIRS-eq" : "Observed VIIRS"})`
+            : "No recorded detections / NULL"}
+        </div>
+      </div>
+    )}
     <p className="sr-only">Basemap geography is contextual. Only verified supported block polygons can update analytical selection. Keyboard users may use the supported-block selector below the map.</p>
   </div>;
 }
