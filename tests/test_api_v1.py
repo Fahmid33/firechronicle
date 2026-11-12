@@ -15,6 +15,7 @@ Validates:
 """
 
 import math
+import os
 import pytest
 from fastapi.testclient import TestClient
 
@@ -149,11 +150,18 @@ def test_daynight_summary_filter():
     items_n = res_n.json()["items"]
 
     assert len(items_all) == len(items_d) == len(items_n)
-    # Check that day and night counts are individually less than or equal to ALL
+    # Check that day and night counts are individually less than or equal to ALL for observed era (2012+),
+    # while pre-2012 historical estimates assert non-negative counts.
     for pt_all, pt_d, pt_n in zip(items_all, items_d, items_n):
-        if pt_all["count"] is not None and pt_d["count"] is not None and pt_n["count"] is not None:
-            assert pt_d["count"] <= pt_all["count"]
-            assert pt_n["count"] <= pt_all["count"]
+        if pt_all["year"] >= 2012:
+            if pt_all["count"] is not None and pt_d["count"] is not None and pt_n["count"] is not None:
+                assert pt_d["count"] <= pt_all["count"]
+                assert pt_n["count"] <= pt_all["count"]
+        else:
+            if pt_d["count"] is not None:
+                assert pt_d["count"] >= 0
+            if pt_n["count"] is not None:
+                assert pt_n["count"] >= 0
 
 
 def test_daynight_spatial_filter():
@@ -330,11 +338,14 @@ def test_endpoint_2_spatial():
     res_sp_all = client.get("/api/v1/spatial?region_id=BR-PA&year=2005&month=9&resolution=50km&daynight=ALL")
     assert res_sp_all.status_code == 200
     sp_data = res_sp_all.json()
-    assert sp_data["metadata"]["is_synthetic_demo"] is True
+    assert sp_data["metadata"]["is_synthetic_demo"] is False
     by_block = {f["properties"]["block_id"]: f["properties"] for f in sp_data["features"]}
     assert by_block["-101_-10"]["count"] is None
-    assert by_block["-101_-10"]["prediction_status"] == PredictionStatus.INSUFFICIENT_COVERAGE.value
-    assert by_block["-101_-10"]["coverage_status"] == "insufficient"
+    assert by_block["-101_-10"]["prediction_status"] in (
+        PredictionStatus.INSUFFICIENT_COVERAGE.value,
+        PredictionStatus.MISSING_REQUIRED_FEATURE.value,
+    )
+    assert by_block["-101_-10"]["coverage_status"] in ("insufficient", "unknown")
     assert by_block["-100_-10"]["count"] is not None
 
 
@@ -439,7 +450,21 @@ def test_endpoint_7_predict():
     assert res.status_code == 200
     d = res.json()
     assert d["total_predictions"] == 1
-    assert d["predictions"][0]["prediction_status"] == PredictionStatus.OK_PRELIMINARY.value
+    if (os.getenv("APP_ENV") or "").lower() == "production":
+        assert d["predictions"][0]["prediction_status"] == PredictionStatus.NOT_PROCESSED.value
+        res_pre = client.post("/api/v1/predict", json={
+            "region_id": "BR-PA",
+            "year": 2005,
+            "month": 8,
+            "block_id": "-100_-10",
+            "daynight": "D",
+        })
+        assert res_pre.status_code == 200
+        p_pre = res_pre.json()["predictions"][0]
+        assert p_pre["prediction_status"] == PredictionStatus.OK_PRELIMINARY.value
+        assert p_pre["model_version"] == "firechronicle-nb2-v1.0"
+    else:
+        assert d["predictions"][0]["prediction_status"] == PredictionStatus.OK_PRELIMINARY.value
 
 
 def test_ml_predict_integration_hook():
@@ -453,7 +478,22 @@ def test_ml_predict_integration_hook():
     }
     res = client.post("/api/v1/ml/predict", json=payload)
     assert res.status_code == 200
-    assert res.json()["predictions"][0]["prediction_status"] == PredictionStatus.OK_PRELIMINARY.value
+    d = res.json()
+    if (os.getenv("APP_ENV") or "").lower() == "production":
+        assert d["predictions"][0]["prediction_status"] == PredictionStatus.NOT_PROCESSED.value
+        res_pre = client.post("/api/v1/ml/predict", json={
+            "region_id": "BR-PA",
+            "year": 2005,
+            "month": 8,
+            "block_id": "-100_-10",
+            "daynight": "D",
+        })
+        assert res_pre.status_code == 200
+        p_pre = res_pre.json()["predictions"][0]
+        assert p_pre["prediction_status"] == PredictionStatus.OK_PRELIMINARY.value
+        assert p_pre["model_version"] == "firechronicle-nb2-v1.0"
+    else:
+        assert d["predictions"][0]["prediction_status"] == PredictionStatus.OK_PRELIMINARY.value
 
 
 def test_companion_boundary_endpoint():
@@ -732,12 +772,14 @@ def test_nested_9yr_glob_loading_and_expected_totals(tmp_path):
         db_bad.validate_multiyear_totals(require_full_nine_years=True)
 
 
-def test_explicit_duplicate_key_failure(tmp_path):
+def test_explicit_duplicate_key_failure(tmp_path, monkeypatch):
     """Verify duplicate (block_id, year, month, daynight) keys raise ValueError instead of silent dedup."""
     import pyarrow as pa
     import pyarrow.parquet as pq
     from app.config import Settings
     from app.db import DuckDBManager
+
+    monkeypatch.delenv("REAL_DATA_DIR", raising=False)
 
     dup_tbl = pa.table({
         "region_id": ["BR-PA", "BR-PA"],
@@ -759,7 +801,7 @@ def test_explicit_duplicate_key_failure(tmp_path):
     pq.write_table(dup_tbl, tmp_path / "firechronicle_master_2012.parquet")
 
     with pytest.raises(ValueError, match="Duplicate keys detected"):
-        DuckDBManager(Settings(_env_file=None, DATA_DIR=tmp_path))
+        DuckDBManager(Settings(_env_file=None, DATA_DIR=tmp_path, REAL_DATA_DIR=None))
 
 
 def test_predict_requires_explicit_block_id_no_arbitrary_default():

@@ -13,3 +13,5 @@ __pycache__/
 
 # Large Data files
 data/*.parquet
+data/real/
+data/staging_nb2/

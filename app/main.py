@@ -11,7 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.config import get_settings
-from app.db import get_db
+from app.db import get_db, validate_and_initialize_db
 from app.routers import api_v1, ml_bridge
 
 logging.basicConfig(
@@ -20,6 +20,30 @@ logging.basicConfig(
 )
 logger = logging.getLogger("firechronicle.main")
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+    """
+    FastAPI Lifespan Context Manager:
+    - Runs BEFORE the server starts listening for requests.
+    - Calls validate_and_initialize_db().
+    - If duplicates or errors occur, sys.exit(1) inside db.py kills the process instantly,
+      preventing the API from appearing operational.
+    """
+    print("[Startup] Initializing FireChronicle Backend...")
+
+    # Run our strict validation & connection routine
+    db_conn = validate_and_initialize_db(require_full_nine_years=False)
+
+    # Store the active DuckDB connection in app state so endpoints can query it
+    app.state.db = db_conn
+
+    yield  # Server runs and handles requests here...
+
+    # --- SHUTDOWN PHASE ---
+    print("[Shutdown] Closing database connection...")
+    get_db.cache_clear()
+    db_conn.close()
 
 
 def create_app() -> FastAPI:
@@ -77,6 +101,15 @@ def create_app() -> FastAPI:
     app.include_router(api_v1.router)
     app.include_router(ml_bridge.router)
 
+    @app.get("/health", summary="Health check endpoint")
+    def health_check():
+        """Health check endpoint. Only reachable if startup validation passed successfully."""
+        return {
+            "status": "operational",
+            "database_integrity": "verified",
+            "model_status": "not_ready",
+        }
+
     @app.get("/", summary="Root API health and metadata")
     def root():
         return {
@@ -105,58 +138,5 @@ def create_app() -> FastAPI:
 
     return app
 
-from fastapi import FastAPI
-from contextlib import asynccontextmanager
-from fastapi.middleware.cors import CORSMiddleware
 
-from app.db import get_db, validate_and_initialize_db
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    """
-    FastAPI Lifespan Context Manager:
-    - Runs BEFORE the server starts listening for requests.
-    - Calls validate_and_initialize_db().
-    - If duplicates or errors occur, sys.exit(1) inside db.py kills the process instantly,
-      preventing the API from appearing operational.
-    """
-    print("[Startup] Initializing FireChronicle Backend...")
-
-    # Run our strict validation & connection routine
-    db_conn = validate_and_initialize_db(require_full_nine_years=False)
-
-    # Store the active DuckDB connection in app state so endpoints can query it
-    app.state.db = db_conn
-
-    yield  # Server runs and handles requests here...
-
-    # --- SHUTDOWN PHASE ---
-    print("[Shutdown] Closing database connection...")
-    get_db.cache_clear()
-    db_conn.close()
-
-# Initialize the FastAPI app with the lifespan handler
-app = FastAPI(
-    title="FireChronicle Backend",
-    version="1.0.0",
-    lifespan=lifespan
-)
-
-# Secure CORS Middleware (restricting to your frontend origin)
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  # Update to your production frontend URL later
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-@app.get("/health")
-def health_check():
-    """Health check endpoint. Only reachable if startup validation passed successfully."""
-    return {
-        "status": "operational",
-        "database_integrity": "verified",
-        "model_status": "not_ready"  # Explicitly flagging real model as not ready
-    }
 app = create_app()

@@ -38,7 +38,13 @@ class Settings(BaseSettings):
 
     # Paths
     DATA_DIR: Path = BACKEND_ROOT / "data"
-    REAL_DATA_DIR: Optional[Path] = Field(default_factory=lambda: (Path(os.getenv("REAL_DATA_DIR")) if os.getenv("REAL_DATA_DIR") else None))
+    REAL_DATA_DIR: Optional[Path] = Field(
+        default_factory=lambda: (
+            Path(os.getenv("REAL_DATA_DIR"))
+            if os.getenv("REAL_DATA_DIR")
+            else (BACKEND_ROOT / "data" / "real")
+        )
+    )
     DUCKDB_PATH: str = ":memory:"
 
     # ML Model remote connection settings (strictly loaded from environment, no hardcoded secrets)
