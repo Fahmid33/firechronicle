@@ -148,7 +148,7 @@ export function AnalysisPanel() {
           <div>
             <dt className="text-xs text-muted-foreground">Block geometry source</dt>
             <dd className="mt-1 leading-relaxed">
-              {metadata?.sourceLabel ?? "Equal Earth EPSG:6933 50 km canonical grid (568 blocks)"}
+              {metadata?.sourceLabel ?? "WGS 84 / NSIDC EASE-Grid 2.0 Global (EPSG:6933, Lambert Cylindrical Equal Area) 50 km canonical grid (568 blocks)"}
             </dd>
           </div>
           <div>

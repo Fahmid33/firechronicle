@@ -48,10 +48,10 @@ export function generateTimeSeriesCsv(options: CsvExportOptions): string {
 
   lines.push("# FireChronicle Earth Observation Explorer - Scientific Time Series Export");
   lines.push(`# Region: ${regionId} (Pará, Brazil)`);
-  lines.push(`# Scope: ${blockId ? `Block ${blockId} (50 km Equal Earth grid cell)` : "Statewide Pará (Available positive passes)"}`);
+  lines.push(`# Scope: ${blockId ? `Block ${blockId} (50 km EASE-Grid 2.0 / EPSG:6933 grid cell)` : "Statewide Pará (Strict daynight=ALL)"}`);
   lines.push(`# Exported at (UTC): ${new Date().toISOString()}`);
   lines.push("# Scientific Integrity Rule: Aqua MODIS and S-NPP VIIRS detections are NEVER summed together.");
-  lines.push("# Day/Night Policy: daynight column is labeled 'ALL' representing monthly aggregated pass totals.");
+  lines.push("# Day/Night Policy: daynight column is labeled 'ALL'. At block level, D+N is valid only if both passes exist; at statewide level, totals sum only complete pairs.");
   lines.push("# Missing Data Policy: Pre-commissioning (Jan-Jun 2002) and missing passes are preserved as NULL (empty), NOT zero.");
   lines.push("# Model Specification: firechronicle-nb2-v1.0 (Negative Binomial GLM, alpha = 0.3394)");
   lines.push("#");

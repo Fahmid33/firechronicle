@@ -114,4 +114,41 @@ test('Priority 1: Backend daynight=ALL contract reconciliation', async (t) => {
       }
     }
   });
+
+  await t.test('6. Canonical 50 km block geometry uses authoritative EPSG:6933 Lambert Cylindrical Equal Area transformation', () => {
+    const geoBlocks = JSON.parse(readFileSync(join(root, 'public/data/geo/para_50km_blocks.json'), 'utf8'));
+    assert.strictEqual(geoBlocks.regionId, 'BR-PA');
+    assert.strictEqual(geoBlocks.calibrationScaleKm, 50);
+    assert.strictEqual(geoBlocks.geojson.features.length, 568);
+    assert.ok(geoBlocks.projection.includes('EPSG:6933'), 'Must reference EPSG:6933');
+    assert.ok(geoBlocks.projection.includes('Lambert Cylindrical Equal Area'), 'Must reference Lambert Cylindrical Equal Area');
+
+    // Verify spatial bounding box bounds enclosing Pará
+    let minLon = 180, maxLon = -180, minLat = 90, maxLat = -90;
+    for (const feat of geoBlocks.geojson.features) {
+      for (const pt of feat.geometry.coordinates[0]) {
+        minLon = Math.min(minLon, pt[0]);
+        maxLon = Math.max(maxLon, pt[0]);
+        minLat = Math.min(minLat, pt[1]);
+        maxLat = Math.max(maxLat, pt[1]);
+      }
+    }
+
+    // Under true EPSG:6933 (Lambert CEA, lat_ts=30°), Pará 50 km grid spans:
+    // lon: [-59.08, -45.60], lat: [-9.85, 2.74]
+    // (Previously under Equal Earth inverse it was shifted west to minLon=-59.51)
+    assert.ok(minLon > -59.20 && minLon < -58.95, `minLon (${minLon.toFixed(4)}) must be near -59.08`);
+    assert.ok(maxLon > -45.75 && maxLon < -45.45, `maxLon (${maxLon.toFixed(4)}) must be near -45.60`);
+    assert.ok(minLat > -9.95 && minLat < -9.75, `minLat (${minLat.toFixed(4)}) must be near -9.85`);
+    assert.ok(maxLat > 2.65 && maxLat < 2.85, `maxLat (${maxLat.toFixed(4)}) must be near 2.74`);
+
+    // Verify sample block -100_-1 coords: lon [-51.82, -51.30], lat [-0.39, 0.00]
+    const b100 = geoBlocks.geojson.features.find(f => f.properties.block_id === '-100_-1');
+    assert.ok(b100, 'Block -100_-1 must exist');
+    const ring = b100.geometry.coordinates[0];
+    const bMinLon = Math.min(...ring.map(p => p[0]));
+    const bMaxLon = Math.max(...ring.map(p => p[0]));
+    assert.ok(Math.abs(bMinLon - (-51.8208)) < 0.01, `Block -100_-1 minLon (${bMinLon}) matches EPSG:6933 calculation -51.82`);
+    assert.ok(Math.abs(bMaxLon - (-51.3026)) < 0.01, `Block -100_-1 maxLon (${bMaxLon}) matches EPSG:6933 calculation -51.30`);
+  });
 });

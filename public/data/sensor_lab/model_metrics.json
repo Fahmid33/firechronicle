@@ -1,7 +1,7 @@
 {
   "regionId": "BR-PA",
   "modelVersion": "firechronicle-nb2-v1.0",
-  "generatedAtUtc": "2026-11-12T18:38:51.205027+00:00",
+  "generatedAtUtc": "2026-11-12T18:57:40.089849+00:00",
   "scientificStatus": "EMPIRICALLY_CALIBRATED_RESEARCH_SPECIFICATION",
   "architecture": {
     "family": "Generalized Linear Model (GLM)",

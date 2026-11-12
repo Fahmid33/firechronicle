@@ -142,7 +142,7 @@ All outstanding scientific data, official geometry, typed adapters, visual analy
 
 ### 1. Official Geometry & Quantitative Geospatial Map
 - **Official IBGE 2024 Boundary**: Transformed directly from verified shapefile `PA_UF_2024.zip` (SHA-256: `5ddadf2e...`) to EPSG:4326 GeoJSON MultiPolygon (35 parts, 6,559 vertices). Validated against `boundaryIsUsable()`.
-- **568 Canonical 50 km Blocks**: Transformed from `para_50km_grid_geometry.parquet` using pure-Python inverse Equal Earth equations (EPSG:6933 to EPSG:4326). Validated against `resolveMapData()`.
+- **568 Canonical 50 km Blocks**: Transformed from `para_50km_grid_geometry.parquet` using pure-Python inverse EPSG:6933 Lambert Cylindrical Equal Area equations (WGS 84 / NSIDC EASE-Grid 2.0 Global to EPSG:4326). Validated against `resolveMapData()`.
 - **Quantitative Month-Specific Choropleth**: All 568 blocks dynamically reflect month-specific detection counts (`MAP_IDS.blockFill`).
   - Warm Amber ramp for Historical Estimated Era (2002–2011).
   - Emerald Green ramp for Modern Observed Era (2012–2020).

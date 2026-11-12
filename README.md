@@ -19,7 +19,7 @@ The application bridges the sensor discontinuity between historical **Aqua MODIS
 
 1. **Interactive Geospatial Map (MapLibre GL JS v6)**:
    - Official **IBGE 2024** Pará state boundary (EPSG:4674 transformed to EPSG:4326).
-   - **568 canonical 50 km Equal Earth blocks** (EPSG:6933 Equal Earth projection inverted to EPSG:4326 GeoJSON).
+   - **568 canonical 50 km blocks** (WGS 84 / NSIDC EASE-Grid 2.0 Global, EPSG:6933, Lambert Cylindrical Equal Area inverted to EPSG:4326 GeoJSON).
    - **Quantitative block-level choropleth**: dynamically colored by month-specific detection counts (Amber ramp for 2002–2011 estimated era, Emerald ramp for 2012–2020 observed era).
    - Interactive hover cards and click selection across all 568 blocks.
    - Missing/unobserved passes preserved as neutral uncolored cells (never zero).
@@ -122,7 +122,7 @@ npm run build
 
 - **Real Elements**:
   - Pará boundary GeoJSON (official IBGE 2024 `PA_UF_2024.zip`, 35 MultiPolygon parts, 6,559 vertices).
-  - 50 km grid block GeoJSON (568 canonical blocks from `para_50km_grid_geometry.parquet`, inverse Equal Earth).
+  - 50 km grid block GeoJSON (568 canonical blocks from `para_50km_grid_geometry.parquet`, inverse EPSG:6933 Lambert Cylindrical Equal Area).
   - Statewide monthly time series (2002–2020, 228 months, exact historical NB2 predictions and observed VIIRS counts).
   - Block-level monthly values (568 blocks × 228 periods = 129,504 block-month values).
   - Validation metrics (Strategy A temporal holdout and Strategy B geographic holdout directly from `validation_metrics_final_nb2.json`).
