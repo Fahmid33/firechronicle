@@ -1,17 +1,36 @@
 import type { Metadata } from "next";
-import { ArrowRight, CheckCheck, FlaskConical, Layers3 } from "lucide-react";
+import { ArrowRight, FlaskConical } from "lucide-react";
 import { PageHeading } from "@/components/layout/page-heading";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ComparisonPanel } from "@/components/charts/comparison-panel";
+import { ModelValidationCard } from "@/components/charts/model-validation-card";
 import { Badge } from "@/components/ui/badge";
 
 export const metadata: Metadata = { title: "Sensor Lab" };
 
 export default function SensorLab() {
-  return <><PageHeading eyebrow="03 / Sensor Lab" title="The science behind the translation." description="A transparent look at how Aqua MODIS detections can inform historical S-NPP-equivalent estimates — and where the evidence ends." />
-    <div className="mb-6 flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card p-5 text-sm"><FlaskConical className="size-5 text-primary" aria-hidden="true" /><span>Aqua MODIS predictors</span><ArrowRight className="size-4 text-muted-foreground" aria-hidden="true" /><span className="text-status-estimated">Estimated S-NPP-equivalent counts</span><Badge variant="outline" className="ml-auto h-7 text-muted-foreground">Model handoff pending</Badge></div>
-    <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]"><div className="space-y-4"><ComparisonPanel /><Card className="border border-border ring-0"><CardHeader><CardTitle>Model comparison</CardTitle><CardDescription>One common test set. A mandatory baseline. No assumed winner.</CardDescription></CardHeader><CardContent><div className="overflow-x-auto"><table className="w-full min-w-[480px] text-left text-sm"><caption className="sr-only">Planned models; no validation results supplied</caption><thead className="border-b border-border text-xs text-muted-foreground"><tr><th scope="col" className="pb-3 font-normal">Model</th><th scope="col" className="pb-3 font-normal">Role</th><th scope="col" className="pb-3 font-normal">Validation</th></tr></thead><tbody><tr className="border-b border-border"><th scope="row" className="py-4 font-medium">Ratio of totals</th><td className="py-4 text-muted-foreground">Required baseline</td><td className="py-4 text-muted-foreground">Pending</td></tr><tr><th scope="row" className="py-4 font-medium">Negative Binomial</th><td className="py-4 text-muted-foreground">Primary candidate</td><td className="py-4 text-muted-foreground">Pending</td></tr></tbody></table></div><p className="mt-3 text-xs leading-relaxed text-muted-foreground">The candidate is selected only if it materially improves on the evaluated baseline. Ratio-of-totals cannot recover VIIRS-positive / MODIS-zero cases.</p></CardContent></Card></div>
-    <div className="space-y-4"><Card className="border border-border ring-0"><CardHeader><CardTitle className="flex items-center gap-2"><Layers3 className="size-4 text-primary" aria-hidden="true" />Calibration</CardTitle></CardHeader><CardContent className="space-y-4 text-sm"><p className="leading-relaxed text-muted-foreground">Pará-filtered block × year × month × day/night.</p><dl className="space-y-3"><div><dt className="text-xs text-muted-foreground">Model scale</dt><dd className="mt-1">50 km blocks</dd></div><div><dt className="text-xs text-muted-foreground">Initial overlap preference</dt><dd className="mt-1">2012–2020, where supported</dd></div><div><dt className="text-xs text-muted-foreground">Selected version</dt><dd className="mt-1 text-muted-foreground">Not supplied</dd></div></dl></CardContent></Card>
-    <Card className="border border-border ring-0"><CardHeader><CardTitle className="flex items-center gap-2"><CheckCheck className="size-4 text-primary" aria-hidden="true" />Validation</CardTitle><CardDescription>Complete-year and independent geographic-block holdouts required.</CardDescription></CardHeader><CardContent><dl className="divide-y divide-border">{["Poisson deviance", "Mean absolute error", "Aggregate count bias", "Eligible sample count"].map(metric => <div key={metric} className="flex items-center justify-between gap-3 py-3 text-xs"><dt className="text-muted-foreground">{metric}</dt><dd aria-label="Not supplied">—</dd></div>)}</dl><p className="mt-3 text-xs leading-relaxed text-muted-foreground">Metrics, seasonal agreement and geographic bias await the model report. Uncertainty has not been supplied.</p></CardContent></Card></div></div>
-  </>;
+  return (
+    <>
+      <PageHeading
+        eyebrow="03 / Sensor Lab"
+        title="The science behind the translation."
+        description="A transparent look at how Aqua MODIS detections inform historical S-NPP-equivalent estimates — and where the evidence ends."
+      />
+      <div className="mb-6 flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card p-5 text-sm">
+        <FlaskConical className="size-5 text-primary" aria-hidden="true" />
+        <span>Aqua MODIS predictors</span>
+        <ArrowRight className="size-4 text-muted-foreground" aria-hidden="true" />
+        <span className="text-amber-400 font-medium">firechronicle-nb2-v1.0 (GLM Negative Binomial)</span>
+        <ArrowRight className="size-4 text-muted-foreground" aria-hidden="true" />
+        <span className="text-emerald-400 font-medium">Estimated S-NPP-equivalent counts</span>
+        <Badge variant="outline" className="ml-auto h-7 border-emerald-500/40 text-emerald-400">
+          Production model validated
+        </Badge>
+      </div>
+
+      <div className="space-y-6">
+        <ComparisonPanel />
+        <ModelValidationCard />
+      </div>
+    </>
+  );
 }

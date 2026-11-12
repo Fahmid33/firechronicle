@@ -7,10 +7,11 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "node --test tests/map-data.test.mjs tests/real-static-data.test.mjs tests/data-client.test.mjs",
+    "test": "node --test tests/map-data.test.mjs tests/real-static-data.test.mjs tests/data-client.test.mjs tests/chart-transforms.test.mjs",
     "test:map": "node --test tests/map-data.test.mjs",
     "test:data": "node --test tests/real-static-data.test.mjs",
-    "test:client": "node --test tests/data-client.test.mjs"
+    "test:client": "node --test tests/data-client.test.mjs",
+    "test:charts": "node --test tests/chart-transforms.test.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",

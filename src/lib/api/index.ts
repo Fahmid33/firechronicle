@@ -7,15 +7,22 @@ export * from "./adapters/static-adapter";
 export * from "./adapters/live-adapter";
 export * from "./adapters/mock-adapter";
 
+/**
+ * Resolves data client mode with deterministic precedence:
+ * 1. NEXT_PUBLIC_DATA_MODE ("static" | "live" | "mock")
+ * 2. NEXT_PUBLIC_USE_MOCKS ("true" -> "mock", "live" -> "live", "false" with URL -> "live")
+ * 3. Default: "static" (verified real JSON)
+ */
 export function resolveClientMode(): DataSourceMode {
-  const envMocks = process.env.NEXT_PUBLIC_USE_MOCKS?.toLowerCase();
-  if (envMocks === "true" || envMocks === "mock") {
-    return "mock";
-  }
-  if (envMocks === "live" || (envMocks === "false" && process.env.NEXT_PUBLIC_API_BASE_URL)) {
-    return "live";
-  }
-  // Default for production demo: Verified Precomputed Static JSON
+  const explicitMode = process.env.NEXT_PUBLIC_DATA_MODE?.toLowerCase();
+  if (explicitMode === "mock") return "mock";
+  if (explicitMode === "live") return "live";
+  if (explicitMode === "static") return "static";
+
+  const legacyMocks = process.env.NEXT_PUBLIC_USE_MOCKS?.toLowerCase();
+  if (legacyMocks === "true" || legacyMocks === "mock") return "mock";
+  if (legacyMocks === "live" || (legacyMocks === "false" && process.env.NEXT_PUBLIC_API_BASE_URL)) return "live";
+
   return "static";
 }
 

@@ -60,7 +60,8 @@ test("StaticJsonAdapter loads real scientific data and passes Zod schema validat
 
   const metricsData = await adapter.getModelMetrics();
   assert.equal(metricsData.modelVersion, "firechronicle-nb2-v1.0");
-  assert.equal(metricsData.official_evaluation_metrics.temporal_holdout_2019_2020.nb2_metrics.native_cell_mae, 35.4374);
+  assert.equal(metricsData.officialEvaluationMetrics.strategy_A_temporal_holdout.nb2.mae, 35.4374);
+  assert.equal(metricsData.officialEvaluationMetrics.strategy_A_temporal_holdout.nb2.meanPoissonDeviance, 25.0056);
 });
 
 test("MockAdapter returns synthetic fixtures stamped as DEVELOPMENT / SYNTHETIC", async () => {
@@ -73,7 +74,7 @@ test("MockAdapter returns synthetic fixtures stamped as DEVELOPMENT / SYNTHETIC"
   assert.ok(tsData.provenance.partial_month_notice.includes("DEVELOPMENT / SYNTHETIC"));
 
   const metrics = await adapter.getModelMetrics();
-  assert.ok(metrics.scientific_limitations[0].includes("DEVELOPMENT / SYNTHETIC"));
+  assert.ok(metrics.scientificLimitations[0].includes("DEVELOPMENT / SYNTHETIC"));
 });
 
 test("LiveApiAdapter never silently falls back to synthetic data on failure", async () => {

@@ -7,6 +7,7 @@ import { useSelection } from "@/store/selection-store";
 import { MONTHS, isEraCompatible } from "@/types/explorer";
 import { PENDING_MAP_DATA, type MapData } from "@/types/map-data";
 import { resolveMapData } from "@/lib/map/verified-data";
+import { useMapData } from "@/lib/api/queries";
 import { LayerControls } from "@/components/map/layer-controls";
 import { ScienceStatus } from "@/components/ui/science-status";
 import { DataState } from "@/components/ui/data-state";
@@ -18,14 +19,16 @@ const ParaMap = dynamic(() => import("@/components/map/para-map"), {
   loading: () => <div className="flex h-[440px] items-center justify-center bg-background sm:h-[480px] 2xl:h-[560px]"><DataState state="loading" title="Opening the Pará map" description="Loading the interactive map engine." /></div>,
 });
 
-export function MapWorkspace({ data = PENDING_MAP_DATA }: { data?: MapData }) {
+export function MapWorkspace({ data }: { data?: MapData }) {
+  const { data: fetchedMapData } = useMapData();
+  const effectiveData = data ?? fetchedMapData ?? PENDING_MAP_DATA;
   const year = useSelection(s => s.year);
   const month = useSelection(s => s.month);
   const layer = useSelection(s => s.activeLayer);
   const block = useSelection(s => s.block_id);
   const setBlock = useSelection(s => s.setBlock);
   const setLayer = useSelection(s => s.setLayer);
-  const resolved = useMemo(() => resolveMapData(data, year, month, layer), [data, year, month, layer]);
+  const resolved = useMemo(() => resolveMapData(effectiveData, year, month, layer), [effectiveData, year, month, layer]);
   const compatible = isEraCompatible(year, layer);
   const blockIds = useMemo(() => resolved.blocks?.geojson.features.map(f => f.properties.block_id) ?? [], [resolved.blocks]);
   const selectedBlock = block && blockIds.includes(block) ? block : null;

@@ -13,10 +13,14 @@ export const MonthlySeriesItemSchema = z.object({
   status: z.enum(["ok", "unsupported_period", "partial_observation", "missing"]),
   coverage_status: z.string(),
   measurement_unit: z.string().nullable(),
+  expected_passes: z.number().int().optional(),
+  available_estimates_count: z.number().int().nullable().optional(),
+  missing_estimates_count: z.number().int().nullable().optional(),
   estimated_viirs_count: z.number().nullable(),
   observed_viirs_count: z.number().nullable(),
   observed_modis_count: z.number().nullable(),
   source: z.string(),
+  completeness_notice: z.string().optional(),
 });
 
 export type MonthlySeriesItem = z.infer<typeof MonthlySeriesItemSchema>;
@@ -28,12 +32,17 @@ export const StatewideMonthlyPayloadSchema = z.object({
     model_version: z.string(),
     historical_period: z.string(),
     observed_period: z.string(),
+    clean_overlap_period: z.string().optional(),
+    total_historical_expected_passes: z.number().int().optional(),
+    total_historical_available_estimates: z.number().int().optional(),
+    total_historical_missing_estimates: z.number().int().optional(),
     total_historical_estimated_viirs: z.number(),
     total_observed_viirs: z.number().int(),
     total_observed_modis: z.number().int(),
     clean_period_observed_viirs: z.number().int(),
     clean_period_observed_modis: z.number().int(),
     partial_month_notice: z.string(),
+    scientific_integrity_rule: z.string().optional(),
   }),
   series: z.array(MonthlySeriesItemSchema),
 });
@@ -51,6 +60,7 @@ export const CalendarMonthItemSchema = z.object({
   value_type: z.enum(["estimated", "observed"]).nullable(),
   status: z.enum(["ok", "unsupported_period", "partial_observation", "missing"]),
   measurement_unit: z.string().nullable(),
+  coverage_notice: z.string().optional(),
 });
 
 export type CalendarMonthItem = z.infer<typeof CalendarMonthItemSchema>;
@@ -93,64 +103,78 @@ export type BlocksSummaryPayload = z.infer<typeof BlocksSummaryPayloadSchema>;
 // -----------------------------------------------------------------------------
 // 4. Model Evaluation Metadata (Sensor Lab)
 // -----------------------------------------------------------------------------
-export const EvaluationMetricsSchema = z.object({
-  native_cell_mae: z.number(),
-  native_cell_medae: z.number(),
-  native_cell_rmse: z.number(),
-  monthly_wape_pct: z.number().optional(),
-  spatial_wape_pct: z.number().optional(),
-  monthly_r2: z.number().optional(),
-  aggregate_bias_pct: z.number(),
+export const EvaluationSplitSchema = z.object({
+  title: z.string(),
+  description: z.string(),
+  sampleSize: z.number().int(),
+  nb2: z.object({
+    mae: z.number(),
+    medae: z.number(),
+    rmse: z.number(),
+    meanPoissonDeviance: z.number(),
+    totalPoissonDeviance: z.number().optional(),
+    aggregateBiasPct: z.number(),
+    monthlyCorrelation: z.number(),
+    monthlyWapePct: z.number().optional(),
+    spatialWapePct: z.number().optional(),
+    monthlyR2: z.number().optional(),
+    dispersionAlpha: z.number(),
+  }),
+  baselineRatio: z.object({
+    mae: z.number(),
+    medae: z.number(),
+    rmse: z.number(),
+    meanPoissonDeviance: z.number(),
+    totalPoissonDeviance: z.number().optional(),
+    aggregateBiasPct: z.number(),
+    monthlyCorrelation: z.number(),
+    monthlyWapePct: z.number().optional(),
+    spatialWapePct: z.number().optional(),
+    monthlyR2: z.number().optional(),
+    fittedK: z.number(),
+  }),
+  comparison: z.object({
+    maeReduction: z.number(),
+    devianceReduction: z.number(),
+    monthlyWapeReductionPct: z.number().optional(),
+    spatialWapeReductionPct: z.number().optional(),
+  }),
 });
 
 export const ModelMetricsPayloadSchema = z.object({
   regionId: z.literal("BR-PA"),
   modelVersion: z.string(),
   generatedAtUtc: z.string(),
+  scientificStatus: z.string(),
   architecture: z.object({
     family: z.string(),
     distribution: z.string(),
     link: z.string(),
-    dispersion_alpha: z.number(),
-    poisson_deviance: z.number(),
-    reference_month: z.number().int(),
-    baseline_ratio_k: z.number(),
+    dispersionAlpha: z.number(),
+    logLikelihood: z.number(),
+    aic: z.number(),
+    bic: z.number(),
+    referenceMonth: z.number().int(),
+    baselineRatioMultiplierK: z.number(),
     predictors: z.array(z.string()),
   }),
-  training_provenance: z.object({
-    calibration_dataset: z.string(),
-    sample_design: z.string(),
-    training_records_count: z.number().int(),
-    temporal_training_set_2012_2018: z.number().int(),
-    temporal_test_set_2019_2020: z.number().int(),
-    geographic_training_blocks_count: z.number().int(),
-    geographic_heldout_blocks_count: z.number().int(),
-    excluded_period: z.string(),
+  trainingProvenance: z.object({
+    calibrationDataset: z.string(),
+    sampleDesign: z.string(),
+    trainingRecordsCount: z.number().int(),
+    pairedModisTotal: z.number().int(),
+    pairedViirsTotal: z.number().int(),
+    temporalTrainingSet2012_2018: z.number().int(),
+    temporalTestSet2019_2020: z.number().int(),
+    geographicTrainingBlocksCount: z.number().int(),
+    geographicHeldoutBlocksCount: z.number().int(),
+    excludedPeriod: z.string(),
   }),
-  official_evaluation_metrics: z.object({
-    temporal_holdout_2019_2020: z.object({
-      evaluation_period: z.string(),
-      sample_size: z.number().int(),
-      nb2_metrics: EvaluationMetricsSchema,
-      baseline_ratio_metrics: EvaluationMetricsSchema,
-      improvement_vs_baseline: z.object({
-        cell_mae_reduction: z.number(),
-        monthly_wape_reduction_pct: z.number(),
-        monthly_r2_gain: z.number(),
-      }),
-    }),
-    geographic_holdout_94_blocks: z.object({
-      evaluation_blocks: z.string(),
-      sample_size: z.number().int(),
-      nb2_metrics: EvaluationMetricsSchema,
-      baseline_ratio_metrics: EvaluationMetricsSchema,
-      improvement_vs_baseline: z.object({
-        cell_mae_reduction: z.number(),
-        spatial_wape_reduction_pct: z.number(),
-      }),
-    }),
+  officialEvaluationMetrics: z.object({
+    strategy_A_temporal_holdout: EvaluationSplitSchema,
+    strategy_B_geographic_holdout: EvaluationSplitSchema,
   }),
-  scientific_limitations: z.array(z.string()),
+  scientificLimitations: z.array(z.string()),
 });
 
 export type ModelMetricsPayload = z.infer<typeof ModelMetricsPayloadSchema>;

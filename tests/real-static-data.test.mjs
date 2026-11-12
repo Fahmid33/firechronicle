@@ -89,8 +89,10 @@ test("calendar matrix covers 2002-2020 with 19 years and 12 months", () => {
 
 test("model metrics match official NB2 v1.0 specifications", () => {
   assert.equal(modelData.modelVersion, "firechronicle-nb2-v1.0");
-  assert.equal(modelData.architecture.baseline_ratio_k, 6.0540);
-  assert.equal(modelData.training_provenance.training_records_count, 23010);
-  assert.equal(modelData.official_evaluation_metrics.temporal_holdout_2019_2020.nb2_metrics.native_cell_mae, 35.4374);
-  assert.equal(modelData.official_evaluation_metrics.geographic_holdout_94_blocks.nb2_metrics.native_cell_mae, 35.7903);
+  assert.equal(modelData.architecture.baselineRatioMultiplierK, 6.0538);
+  assert.equal(modelData.trainingProvenance.trainingRecordsCount, 23010);
+  assert.equal(modelData.officialEvaluationMetrics.strategy_A_temporal_holdout.nb2.mae, 35.4374);
+  assert.equal(modelData.officialEvaluationMetrics.strategy_A_temporal_holdout.nb2.meanPoissonDeviance, 25.0056);
+  assert.equal(modelData.officialEvaluationMetrics.strategy_B_geographic_holdout.nb2.mae, 35.7903);
+  assert.equal(modelData.officialEvaluationMetrics.strategy_B_geographic_holdout.nb2.meanPoissonDeviance, 20.9497);
 });
