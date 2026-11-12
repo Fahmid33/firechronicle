@@ -1,0 +1,270 @@
+{
+  "scientific_status": "DEMO / SYNTHETIC / NOT SCIENTIFICALLY VALIDATED",
+  "is_production_validation": false,
+  "disclaimer": "All results are computed on synthetic mock test fixtures for algorithmic pipeline testing. Neither model is promoted or chosen for production until empirical NASA Par\u00e1 data is processed.",
+  "data_audit": {
+    "total_records": 576,
+    "eligible_records": 576,
+    "excluded_records": 0,
+    "unknown_coverage_records": 576,
+    "verified_coverage_records": 0,
+    "coverage_policy": "PRELIMINARY_UNADJUSTED_CALIBRATION: Records with 'unknown' or 'coverage_unadjusted' status are included for preliminary baseline calibration under Rulebook Section 3 & 4. They do NOT represent verified clear-sky observation proof or verified fire-free zeros."
+  },
+  "strategy_A_temporal_holdout": {
+    "model_0_ratio_of_totals": {
+      "n_eval_records": 144,
+      "sum_observed": 5779,
+      "sum_predicted": 5247.21,
+      "signed_aggregate_count_error": -531.79,
+      "mean_absolute_error": 15.8502,
+      "aggregate_count_bias_percent": -9.2021,
+      "aggregate_count_bias_undefined_reason": null,
+      "mean_poisson_deviance": 26.0403,
+      "total_poisson_deviance": 3749.7961,
+      "poisson_deviance_scale": "mean_poisson_deviance is normalized per block-month record (2/N * sum(d_i)); total_poisson_deviance is unnormalized sum (2 * sum(d_i)).",
+      "seasonal_agreement": {
+        "peak_observed_month": 9,
+        "peak_predicted_month": 8,
+        "peak_month_match": false,
+        "monthly_profile_correlation": 0.9865
+      },
+      "geographic_block_bias": {
+        "120_-50": {
+          "observed_count": 439,
+          "predicted_count": 700.01,
+          "bias_percent": 59.46,
+          "signed_count_error": 261.01,
+          "undefined_bias_reason": null
+        },
+        "120_-51": {
+          "observed_count": 679,
+          "predicted_count": 725.83,
+          "bias_percent": 6.9,
+          "signed_count_error": 46.83,
+          "undefined_bias_reason": null
+        },
+        "121_-50": {
+          "observed_count": 1199,
+          "predicted_count": 932.39,
+          "bias_percent": -22.24,
+          "signed_count_error": -266.61,
+          "undefined_bias_reason": null
+        },
+        "121_-51": {
+          "observed_count": 1023,
+          "predicted_count": 834.85,
+          "bias_percent": -18.39,
+          "signed_count_error": -188.15,
+          "undefined_bias_reason": null
+        },
+        "122_-50": {
+          "observed_count": 1209,
+          "predicted_count": 992.64,
+          "bias_percent": -17.9,
+          "signed_count_error": -216.36,
+          "undefined_bias_reason": null
+        },
+        "122_-51": {
+          "observed_count": 1230,
+          "predicted_count": 1061.49,
+          "bias_percent": -13.7,
+          "signed_count_error": -168.51,
+          "undefined_bias_reason": null
+        }
+      },
+      "fitted_parameter_k": 2.8689
+    },
+    "model_1_negative_binomial": {
+      "n_eval_records": 144,
+      "sum_observed": 5779,
+      "sum_predicted": 5335.11,
+      "signed_aggregate_count_error": -443.89,
+      "mean_absolute_error": 13.4293,
+      "aggregate_count_bias_percent": -7.6812,
+      "aggregate_count_bias_undefined_reason": null,
+      "mean_poisson_deviance": 8.0788,
+      "total_poisson_deviance": 1163.3471,
+      "poisson_deviance_scale": "mean_poisson_deviance is normalized per block-month record (2/N * sum(d_i)); total_poisson_deviance is unnormalized sum (2 * sum(d_i)).",
+      "seasonal_agreement": {
+        "peak_observed_month": 9,
+        "peak_predicted_month": 8,
+        "peak_month_match": false,
+        "monthly_profile_correlation": 0.9867
+      },
+      "geographic_block_bias": {
+        "120_-50": {
+          "observed_count": 439,
+          "predicted_count": 738.77,
+          "bias_percent": 68.28,
+          "signed_count_error": 299.77,
+          "undefined_bias_reason": null
+        },
+        "120_-51": {
+          "observed_count": 679,
+          "predicted_count": 724.11,
+          "bias_percent": 6.64,
+          "signed_count_error": 45.11,
+          "undefined_bias_reason": null
+        },
+        "121_-50": {
+          "observed_count": 1199,
+          "predicted_count": 949.48,
+          "bias_percent": -20.81,
+          "signed_count_error": -249.52,
+          "undefined_bias_reason": null
+        },
+        "121_-51": {
+          "observed_count": 1023,
+          "predicted_count": 837.93,
+          "bias_percent": -18.09,
+          "signed_count_error": -185.07,
+          "undefined_bias_reason": null
+        },
+        "122_-50": {
+          "observed_count": 1209,
+          "predicted_count": 1012.04,
+          "bias_percent": -16.29,
+          "signed_count_error": -196.96,
+          "undefined_bias_reason": null
+        },
+        "122_-51": {
+          "observed_count": 1230,
+          "predicted_count": 1072.78,
+          "bias_percent": -12.78,
+          "signed_count_error": -157.22,
+          "undefined_bias_reason": null
+        }
+      },
+      "estimated_dispersion_alpha": 0.1859,
+      "optimization_converged": true
+    },
+    "split_description": {
+      "train_years": [
+        2017,
+        2018,
+        2019
+      ],
+      "test_years": [
+        2020
+      ],
+      "train_records": 432,
+      "test_records": 144,
+      "evaluated_blocks": [
+        "120_-50",
+        "120_-51",
+        "121_-50",
+        "121_-51",
+        "122_-50",
+        "122_-51"
+      ]
+    }
+  },
+  "strategy_B_geographic_holdout": {
+    "model_0_ratio_of_totals": {
+      "n_eval_records": 288,
+      "sum_observed": 12047,
+      "sum_predicted": 11920.93,
+      "signed_aggregate_count_error": -126.07,
+      "mean_absolute_error": 15.424,
+      "aggregate_count_bias_percent": -1.0465,
+      "aggregate_count_bias_undefined_reason": null,
+      "mean_poisson_deviance": 22.4088,
+      "total_poisson_deviance": 6453.731,
+      "poisson_deviance_scale": "mean_poisson_deviance is normalized per block-month record (2/N * sum(d_i)); total_poisson_deviance is unnormalized sum (2 * sum(d_i)).",
+      "seasonal_agreement": {
+        "peak_observed_month": 9,
+        "peak_predicted_month": 8,
+        "peak_month_match": false,
+        "monthly_profile_correlation": 0.9979
+      },
+      "geographic_block_bias": {
+        "121_-51": {
+          "observed_count": 3402,
+          "predicted_count": 3494.97,
+          "bias_percent": 2.73,
+          "signed_count_error": 92.97,
+          "undefined_bias_reason": null
+        },
+        "122_-50": {
+          "observed_count": 4084,
+          "predicted_count": 4082.83,
+          "bias_percent": -0.03,
+          "signed_count_error": -1.17,
+          "undefined_bias_reason": null
+        },
+        "122_-51": {
+          "observed_count": 4561,
+          "predicted_count": 4343.13,
+          "bias_percent": -4.78,
+          "signed_count_error": -217.87,
+          "undefined_bias_reason": null
+        }
+      },
+      "fitted_parameter_k": 2.9247
+    },
+    "model_1_negative_binomial": {
+      "n_eval_records": 288,
+      "sum_observed": 12047,
+      "sum_predicted": 12101.58,
+      "signed_aggregate_count_error": 54.58,
+      "mean_absolute_error": 13.6112,
+      "aggregate_count_bias_percent": 0.4531,
+      "aggregate_count_bias_undefined_reason": null,
+      "mean_poisson_deviance": 8.0678,
+      "total_poisson_deviance": 2323.515,
+      "poisson_deviance_scale": "mean_poisson_deviance is normalized per block-month record (2/N * sum(d_i)); total_poisson_deviance is unnormalized sum (2 * sum(d_i)).",
+      "seasonal_agreement": {
+        "peak_observed_month": 9,
+        "peak_predicted_month": 8,
+        "peak_month_match": false,
+        "monthly_profile_correlation": 0.9958
+      },
+      "geographic_block_bias": {
+        "121_-51": {
+          "observed_count": 3402,
+          "predicted_count": 3477.66,
+          "bias_percent": 2.22,
+          "signed_count_error": 75.66,
+          "undefined_bias_reason": null
+        },
+        "122_-50": {
+          "observed_count": 4084,
+          "predicted_count": 4158.63,
+          "bias_percent": 1.83,
+          "signed_count_error": 74.63,
+          "undefined_bias_reason": null
+        },
+        "122_-51": {
+          "observed_count": 4561,
+          "predicted_count": 4465.28,
+          "bias_percent": -2.1,
+          "signed_count_error": -95.72,
+          "undefined_bias_reason": null
+        }
+      },
+      "estimated_dispersion_alpha": 0.2081,
+      "optimization_converged": true
+    },
+    "split_description": {
+      "train_blocks": [
+        "120_-50",
+        "120_-51",
+        "121_-50"
+      ],
+      "test_blocks": [
+        "121_-51",
+        "122_-50",
+        "122_-51"
+      ],
+      "evaluated_years": [
+        2017,
+        2018,
+        2019,
+        2020
+      ],
+      "train_records": 288,
+      "test_records": 288
+    }
+  },
+  "model_selection_status": "NO_DECISION_MADE (Evaluation pipeline operational; awaiting empirical Par\u00e1 dataset)"
+}

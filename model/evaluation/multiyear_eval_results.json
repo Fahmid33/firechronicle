@@ -1,0 +1,150 @@
+{
+  "audit_date": "2026-11-12T13:12:00Z",
+  "project": "FireChronicle",
+  "region_id": "BR-PA",
+  "calibration_collection": "2012-2020 (9 years)",
+  "temporal_truncation_rule": "January 2012 excluded from monthly calibration due to S-NPP VIIRS operational launch truncation (unobserved Jan 1-19, 2012)",
+  "population_accounting": {
+    "total_full_panel_rows": 122688,
+    "jan_2012_full_panel_rows": 1136,
+    "clean_full_panel_rows": 121552,
+    "clean_both_null_rows": 78961,
+    "total_sparse_rows": 42767,
+    "jan_2012_sparse_rows": 176,
+    "clean_sparse_rows": 42591,
+    "subsets_before_jan2012_exclusion": {
+      "paired_positive_m_gt_0_v_gt_0": 23077,
+      "viirs_only_m_na_v_gt_0": 18799,
+      "modis_only_m_gt_0_v_na": 891,
+      "both_null": 0,
+      "total_sum": 42767
+    },
+    "subsets_jan2012_alone": {
+      "paired_positive": 67,
+      "viirs_only": 52,
+      "modis_only": 57,
+      "both_null": 0,
+      "total_sum": 176
+    },
+    "subsets_clean_after_jan2012_exclusion": {
+      "paired_positive_m_gt_0_v_gt_0": 23010,
+      "viirs_only_m_na_v_gt_0": 18747,
+      "modis_only_m_gt_0_v_na": 834,
+      "both_null": 0,
+      "total_sum": 42591
+    }
+  },
+  "sensor_version_group_totals": {
+    "era_2012_2017": {
+      "modis_version_label": "6.2",
+      "viirs_version_label": "2",
+      "modis_detections": 246400,
+      "viirs_detections": 1529900,
+      "domain_ratio_k": 6.209010
+    },
+    "era_2018_2020": {
+      "modis_version_label": "6.03",
+      "viirs_version_label": "2",
+      "modis_detections": 97671,
+      "viirs_detections": 666631,
+      "domain_ratio_k": 6.825271
+    },
+    "total_9_year": {
+      "modis_detections": 344071,
+      "viirs_detections": 2196531,
+      "domain_ratio_k": 6.383947
+    }
+  },
+  "strategy_A_temporal_holdout": {
+    "validation_population": "Paired-positive satellite detections (modis_count > 0 and viirs_count > 0)",
+    "train_years": [2012, 2013, 2014, 2015, 2016, 2017, 2018],
+    "test_years": [2019, 2020],
+    "train_records": 17919,
+    "test_records": 5091,
+    "model_0_ratio": {
+      "fitted_k": 5.8696,
+      "mae": 44.9884,
+      "mean_poisson_deviance": 55.3136,
+      "total_poisson_deviance": 281601.77,
+      "aggregate_bias_pct": -12.9106,
+      "monthly_corr": 0.9854,
+      "peak_month_match": true,
+      "annual_breakdown": {
+        "2019": { "mae": 39.4542, "mean_deviance": 42.4500, "bias_pct": -2.9827 },
+        "2020": { "mae": 50.2615, "mean_deviance": 67.5704, "bias_pct": -19.9633 }
+      }
+    },
+    "model_1_negative_binomial": {
+      "dispersion_alpha": 0.3290,
+      "converged": true,
+      "mae": 35.4374,
+      "mean_poisson_deviance": 25.0056,
+      "total_poisson_deviance": 127303.56,
+      "aggregate_bias_pct": -11.5032,
+      "monthly_corr": 0.9772,
+      "peak_month_match": false,
+      "annual_breakdown": {
+        "2019": { "mae": 28.8864, "mean_deviance": 17.9739, "bias_pct": -3.2563 },
+        "2020": { "mae": 41.6794, "mean_deviance": 31.7056, "bias_pct": -17.3616 }
+      }
+    }
+  },
+  "strategy_B_geographic_holdout": {
+    "validation_population": "Paired-positive satellite detections across held-out 50 km blocks",
+    "total_active_blocks": 470,
+    "train_blocks_count": 376,
+    "test_blocks_count": 94,
+    "train_records": 17863,
+    "test_records": 5147,
+    "model_0_ratio": {
+      "fitted_k": 5.9849,
+      "mae": 53.8686,
+      "mean_poisson_deviance": 56.3544,
+      "total_poisson_deviance": 290056.04,
+      "aggregate_bias_pct": -4.3771,
+      "monthly_corr": 0.9926
+    },
+    "model_1_negative_binomial": {
+      "dispersion_alpha": 0.3470,
+      "converged": true,
+      "mae": 35.7903,
+      "mean_poisson_deviance": 20.9497,
+      "total_poisson_deviance": 107828.15,
+      "aggregate_bias_pct": 4.5479,
+      "monthly_corr": 0.9936
+    }
+  },
+  "sensitivity_experiment_zero_imputation": {
+    "description": "Sensitivity evaluation of zero-MODIS observations where VIIRS detected fires (modis_count imputed as 0)",
+    "clean_imputed_rows_count": 18747,
+    "test_years": [2019, 2020],
+    "test_imputed_subset_only": {
+      "n_records": 4168,
+      "observed_viirs_sum": 28486,
+      "model_0_ratio": {
+        "predicted_sum": 0.0,
+        "mae": 6.8345,
+        "mean_poisson_deviance": 306.2053,
+        "aggregate_bias_pct": -100.0
+      },
+      "model_1_negative_binomial": {
+        "predicted_sum": 29964.01,
+        "mae": 6.2107,
+        "mean_poisson_deviance": 8.5952,
+        "aggregate_bias_pct": 5.1885
+      }
+    },
+    "test_combined_dataset_paired_plus_imputed": {
+      "n_records": 9259,
+      "observed_viirs_sum": 517222,
+      "model_0_ratio": {
+        "mae": 28.6869,
+        "aggregate_bias_pct": -12.7832
+      },
+      "model_1_negative_binomial": {
+        "mae": 21.6859,
+        "aggregate_bias_pct": -9.6723
+      }
+    }
+  }
+}

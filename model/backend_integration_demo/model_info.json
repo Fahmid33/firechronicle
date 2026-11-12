@@ -1,0 +1,25 @@
+{
+  "model_version": "ratio-baseline-v1.0-synthetic-demo",
+  "scientific_status": "DEMO / SYNTHETIC / NOT SCIENTIFICALLY VALIDATED",
+  "is_production_ready": false,
+  "target": "VIIRS S-NPP-equivalent hotspot detections",
+  "region": "Pará (BR-PA), Brazil",
+  "supported_years": {
+    "historical_estimation": "2002-2011",
+    "overlap_calibration": "2012-2020"
+  },
+  "features": [
+    "modis_count"
+  ],
+  "calibration_scale_km": 50,
+  "spatial_crs": "EPSG:6933",
+  "temporal_resolution": "50 km block x year x month x day/night",
+  "multiplier_k": 3.2000,
+  "training_evidence": "Synthetic mock overlap dataset for pipeline development only; NOT real NASA observations.",
+  "disclaimer": "CRITICAL: This model was trained on synthetic mock test fixtures. Predictions must NOT be presented as actual NASA observations or scientifically validated historical counts.",
+  "limitations": [
+    "Inability to recover VIIRS-positive detections when Aqua MODIS count is zero (predict_ratio(0, k) = 0).",
+    "Coverage-unadjusted preliminary counts: FIRMS positive detections without separate clear-sky pixel evidence are labeled 'unknown'.",
+    "Spatial and seasonal homogeneity assumption: applies a constant scalar multiplier across all Pará 50 km blocks without land cover, moisture, or biome covariates."
+  ]
+}

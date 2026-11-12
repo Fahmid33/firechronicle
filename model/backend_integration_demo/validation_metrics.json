@@ -1,0 +1,27 @@
+{
+  "model_version": "ratio-baseline-v1.0-synthetic-demo",
+  "scientific_status": "DEMO / SYNTHETIC / NOT SCIENTIFICALLY VALIDATED",
+  "is_production_validation": false,
+  "evaluation_dataset": "synthetic_overlap_BR-PA.csv (year=2020, block_id=121_-51, N=6)",
+  "held_out_strategy": "Single joint spatio-temporal holdout slice on synthetic test fixture (year=2020, block_id=121_-51). Note: This single hold-out slice demonstrates pipeline metrics only; it does NOT claim separate or orthogonal temporal and geographic cross-validation folds.",
+  "eligible_sample_count": 6,
+  "excluded_records_count": 0,
+  "unknown_coverage_sample_count": 6,
+  "coverage_policy": "PRELIMINARY_UNADJUSTED_CALIBRATION: Records with 'unknown' or 'coverage_unadjusted' status are included for preliminary baseline calibration under Rulebook Section 3 & 4. They do NOT represent verified clear-sky observation proof or verified fire-free zeros.",
+  "fitted_multiplier_k": 3.2,
+  "metrics": {
+    "mean_absolute_error": 0.1,
+    "aggregate_count_bias_percent": 0.0277,
+    "signed_aggregate_count_error": 0.2,
+    "mean_poisson_deviance": 0.0008,
+    "total_poisson_deviance": 0.0051,
+    "poisson_deviance_scale": "mean_poisson_deviance is normalized per block-month record (2/N * sum(d_i)); total_poisson_deviance is unnormalized sum (2 * sum(d_i)).",
+    "sum_observed_viirs": 723,
+    "sum_estimated_viirs": 723.2
+  },
+  "scientific_limitations": [
+    "Cannot recover missed detections when modis_count is zero.",
+    "Evaluated strictly on synthetic mock fixture; not validated against true NASA FIRMS Par\u00e1 observations.",
+    "A larger, multi-year empirical dataset will be required to execute separate temporal and spatial holdout experiments."
+  ]
+}
