@@ -351,3 +351,38 @@ test("LiveApiAdapter transforms documented backend /model-info and /sensor-lab/m
     globalThis.fetch = originalFetch;
   }
 });
+
+test("LiveApiAdapter queries /spatial with separate year, month, resolution, region_id, and daynight parameters", async () => {
+  const originalFetch = globalThis.fetch;
+  let interceptedUrl = "";
+  try {
+    globalThis.fetch = async (url) => {
+      interceptedUrl = String(url);
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ type: "FeatureCollection", features: [] }),
+      };
+    };
+
+    const adapter = new LiveApiAdapter("http://localhost:8000");
+    await adapter.getSpatial({
+      year: 2020,
+      month: 9,
+      resolution: "50km",
+      regionId: "BR-PA",
+      daynight: "ALL",
+    });
+
+    assert.ok(interceptedUrl.includes("/api/v1/spatial?"));
+    assert.ok(interceptedUrl.includes("year=2020"));
+    assert.ok(interceptedUrl.includes("month=9"));
+    assert.ok(interceptedUrl.includes("resolution=50km"));
+    assert.ok(interceptedUrl.includes("region_id=BR-PA"));
+    assert.ok(interceptedUrl.includes("daynight=ALL"));
+    // Crucial: Ensure unsupported 'period' parameter is NOT used
+    assert.ok(!interceptedUrl.includes("period="), "Must not use unsupported period parameter");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});

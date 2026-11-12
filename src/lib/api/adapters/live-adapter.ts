@@ -105,6 +105,14 @@ interface RawSplitRecord {
   comparison?: RawComparisonRecord;
 }
 
+export interface SpatialQueryParams {
+  year: number;
+  month: number;
+  resolution?: string; // default: "50km"
+  regionId?: string; // default: "BR-PA"
+  daynight?: string; // default: "ALL"
+}
+
 export class LiveApiAdapter implements IDataClient {
   readonly mode: DataSourceMode = "live";
   readonly isSynthetic: boolean = false;
@@ -329,14 +337,19 @@ export class LiveApiAdapter implements IDataClient {
 
   /**
    * Live API Limitation:
-   * The FastAPI backend provides period-specific spatial slices via GET /api/v1/spatial?region_id=BR-PA&period=YYYY-MM
-   * and block metadata via GET /api/v1/blocks?region_id=BR-PA. It does not provide a monolithic multi-decadal block
-   * summary endpoint (228 periods x 568 blocks = ~130,000 cells) in a single request.
+   * The FastAPI backend provides period-specific spatial slices via
+   * GET /api/v1/spatial?year=YYYY&month=MM&resolution=50km&region_id=BR-PA&daynight=ALL
+   * and block metadata via GET /api/v1/blocks?region_id=BR-PA.
+   *
+   * Live mode is not fully integrated for block time series because the backend does not
+   * yet expose the full multi-year block-summary contract (228 periods x 568 blocks = ~130,000 cells)
+   * required by the frontend.
    */
   async getBlocksSummary(): Promise<BlocksSummaryPayload> {
     throw new Error(
       "LiveApiAdapter limitation: Multi-decadal 228-month block time series (/api/v1/blocks_summary) is not provided by the live API. " +
-      "The backend API provides period-specific spatial slices via GET /api/v1/spatial?region_id=BR-PA&period=YYYY-MM and block metadata via GET /api/v1/blocks?region_id=BR-PA. " +
+      "Live mode is not fully integrated because the backend does not yet expose the full multi-year block-summary contract required by the frontend. " +
+      "The backend API provides period-specific spatial slices via GET /api/v1/spatial?year=YYYY&month=MM&resolution=50km&region_id=BR-PA&daynight=ALL and block metadata via GET /api/v1/blocks?region_id=BR-PA. " +
       "For full multi-decadal 50 km block drilldown and chart analytics, use precomputed static mode (NEXT_PUBLIC_DATA_MODE=static)."
     );
   }
@@ -514,10 +527,44 @@ export class LiveApiAdapter implements IDataClient {
   }
 
   /**
-   * GET /api/v1/spatial?region_id=BR-PA&period=YYYY-MM
+   * GET /api/v1/spatial?year=YYYY&month=MM&resolution=50km&region_id=BR-PA&daynight=ALL
+   * Queries period-specific 568-block GeoJSON features with separate year, month,
+   * resolution, region_id, and daynight parameters per Backend Engineer API contract.
    */
-  async getSpatial(period: string, regionId = "BR-PA"): Promise<unknown> {
-    return this.request(`/spatial?region_id=${encodeURIComponent(regionId)}&period=${encodeURIComponent(period)}`);
+  async getSpatial(
+    paramsOrPeriod: SpatialQueryParams | string,
+    optionalMonth?: number
+  ): Promise<unknown> {
+    let year: number;
+    let month: number;
+    let resolution = "50km";
+    let regionId = "BR-PA";
+    let daynight = "ALL";
+
+    if (typeof paramsOrPeriod === "object") {
+      year = paramsOrPeriod.year;
+      month = paramsOrPeriod.month;
+      resolution = paramsOrPeriod.resolution ?? "50km";
+      regionId = paramsOrPeriod.regionId ?? "BR-PA";
+      daynight = paramsOrPeriod.daynight ?? "ALL";
+    } else if (typeof paramsOrPeriod === "string" && paramsOrPeriod.includes("-")) {
+      const parts = paramsOrPeriod.split("-");
+      year = parseInt(parts[0], 10);
+      month = parseInt(parts[1], 10);
+    } else {
+      year = parseInt(paramsOrPeriod, 10);
+      month = optionalMonth ?? 1;
+    }
+
+    const query = new URLSearchParams({
+      year: String(year),
+      month: String(month),
+      resolution,
+      region_id: regionId,
+      daynight,
+    });
+
+    return this.request(`/spatial?${query.toString()}`);
   }
 
   /**

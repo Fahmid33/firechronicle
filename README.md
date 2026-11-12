@@ -55,6 +55,9 @@ The frontend uses a pluggable, typed `DataClient` architecture resolved via envi
 | **Live API Mode** | `NEXT_PUBLIC_DATA_MODE=live`<br>`NEXT_PUBLIC_API_BASE_URL=http://localhost:8000` | Connects to FastAPI backend (`/api/v1/...`). Network/server errors throw `ApiHttpError` and **never** fall back to synthetic data. |
 | **Synthetic Mock Mode** | `NEXT_PUBLIC_DATA_MODE=synthetic` or `NEXT_PUBLIC_USE_MOCKS=true` | Uses synthetic fixtures in `src/mocks/fixtures.ts`. Displays prominent `DEVELOPMENT / SYNTHETIC` watermarks and CSV headers. |
 
+> [!NOTE]
+> **Demo Default & Live Mode Integration Status**: `NEXT_PUBLIC_DATA_MODE=static` is the default demonstration mode. Live mode is not fully integrated for block time series because the backend does not yet expose the full multi-year block-summary contract (228 periods × 568 blocks = ~130,000 values) required by the frontend for 50 km block drilldown. Live mode supports statewide monthly time series (`/api/v1/harmonized` + `/api/v1/summary`), calendar matrices, period-specific spatial slices (`/api/v1/spatial?year=YYYY&month=MM&resolution=50km&region_id=BR-PA&daynight=ALL`), block catalogs (`/api/v1/blocks`), and model evaluation metrics (`/api/v1/model-info` + `/api/v1/sensor-lab/metrics`).
+
 ---
 
 ## Scientific Rules & Data Integrity
