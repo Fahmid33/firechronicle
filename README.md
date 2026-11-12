@@ -67,6 +67,7 @@ The frontend uses a pluggable, typed `DataClient` architecture resolved via envi
    - **July 2002**: First operational month; partially covered.
    - **January 2012**: S-NPP VIIRS launched; data archive began Jan 20 (days 1–19 unobserved; excluded from model calibration).
 5. **Observational Caveat**: Visual consistency across seasonal cycles reflects fitted model fixed effects ($\beta_{\text{month}}$), but does not constitute independent proof of true historical fire activity without ground truth.
+6. **Strict Day/Night Aggregation (`daynight=ALL`)**: At the 50 km block level, a combined D+N count is valid if and only if both passes exist; if either is NULL, the block ALL value is preserved as NULL. Statewide totals sum exclusively complete D+N pairs (available single passes are excluded from the main sum).
 
 ---
 

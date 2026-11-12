@@ -218,7 +218,7 @@ export function AnnualTotalsChart({ data, scope, blockId }: Props) {
         </div>
 
         <span className="text-[11px] text-muted-foreground/70">
-          Statewide sums reflect available positive-detection passes (unadjusted for satellite cloud cover)
+          Statewide totals reflect strict daynight=ALL (sums exclusively complete D+N pairs; unadjusted for cloud cover)
         </span>
       </div>
     </div>

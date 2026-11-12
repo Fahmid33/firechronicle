@@ -107,8 +107,8 @@ export function buildTimelineData(
 
 /**
  * Builds 12-month seasonal perspective comparing:
- * - Historical baseline (2003-2011, excluding unsupported Jan-Jun 2002)
- * - Modern observed (2012-2020)
+ * - Historical baseline (2003-2011, excluding unsupported Jan-Jun 2002 and partial Jul 2002)
+ * - Modern observed (2012-2020, excluding partial observation Jan 2012 where days 1-19 were unobserved)
  */
 export function buildSeasonalData(timeline: TimelineDataPoint[]): SeasonalDataPoint[] {
   const result: SeasonalDataPoint[] = [];
@@ -123,9 +123,9 @@ export function buildSeasonalData(timeline: TimelineDataPoint[]): SeasonalDataPo
     const histSum = histPoints.reduce((acc, p) => acc + (p.value ?? 0), 0);
     const historicalAvg = histPoints.length > 0 ? Math.round(histSum / histPoints.length) : null;
 
-    // Modern: 2012-2020 (9 complete years)
+    // Modern: 2012-2020 (excluding partial observation 2012-01 where days 1-19 were unobserved; Jan averages 8 complete years 2013-2020)
     const modernPoints = timeline.filter(
-      (p) => p.month === m && p.year >= 2012 && p.year <= 2020 && p.value !== null
+      (p) => p.month === m && p.year >= 2012 && p.year <= 2020 && p.value !== null && p.status !== "partial_observation"
     );
     const modernSum = modernPoints.reduce((acc, p) => acc + (p.value ?? 0), 0);
     const modernAvg = modernPoints.length > 0 ? Math.round(modernSum / modernPoints.length) : null;

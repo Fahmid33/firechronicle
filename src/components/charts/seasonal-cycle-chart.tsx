@@ -113,12 +113,18 @@ export function SeasonalCycleChart({ data, scope, blockId }: Props) {
                       <div className="flex items-center justify-between gap-3">
                         <span className="flex items-center gap-1.5 text-muted-foreground">
                           <span className="size-2 rounded-full bg-emerald-500" />
-                          <span>Modern Mean (2012–2020):</span>
+                          <span>Modern Mean ({pt.month === 1 ? "2013–2020 · 8 full yrs" : "2012–2020 · 9 yrs"}):</span>
                         </span>
                         <span className="font-mono font-medium text-emerald-300">
                           {pt.modernAvg !== null ? pt.modernAvg.toLocaleString() : "—"}
                         </span>
                       </div>
+
+                      {pt.month === 1 && (
+                        <div className="mt-1 rounded bg-amber-500/10 p-1 text-[10px] text-amber-300/90">
+                          * January modern mean excludes partial Jan 2012 observation (days 1–19 unobserved); averages 8 complete years (2013–2020).
+                        </div>
+                      )}
 
                       <div className="mt-1 border-t border-border/50 pt-1 text-[11px] text-muted-foreground">
                         {pt.month >= 8 && pt.month <= 11
@@ -150,7 +156,7 @@ export function SeasonalCycleChart({ data, scope, blockId }: Props) {
             />
             <Bar
               dataKey="modernAvg"
-              name="Modern Era Average (2012–2020 · Observed)"
+              name="Modern Era Average (2012–2020 · Observed; Jan: 2013–2020)"
               fill="#10b981"
               radius={[4, 4, 0, 0]}
               maxBarSize={30}
@@ -169,7 +175,7 @@ export function SeasonalCycleChart({ data, scope, blockId }: Props) {
         </p>
         <div className="text-[11px] text-muted-foreground/80 pl-6 space-y-0.5">
           <p>• <strong>July 2002:</strong> Partially covered (Aqua MODIS commissioned July 2002; first active operational month).</p>
-          <p>• <strong>January 2012:</strong> Partial VIIRS month (S-NPP archive began Jan 20; days 1–19 unobserved; excluded from model calibration).</p>
+          <p>• <strong>January 2012:</strong> Partial VIIRS month (S-NPP archive began Jan 20; days 1–19 unobserved). Excluded from model calibration and excluded from the modern January climatological average (which reflects 8 complete observation years: 2013–2020).</p>
           <p>• <strong>Sensor eras:</strong> 2003–2011 represents Aqua MODIS-derived NB2 estimates; 2012–2020 represents direct S-NPP VIIRS observations.</p>
           <p>• <strong>Historical coverage:</strong> Satellite orbital gaps and cloud obscuration are unadjusted; missing records are preserved as NULL, never zero.</p>
         </div>
