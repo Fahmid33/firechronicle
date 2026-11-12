@@ -21,24 +21,6 @@ logging.basicConfig(
 logger = logging.getLogger("firechronicle.main")
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
-    """Lifespan handler: initialize DuckDB views and verify data files on startup."""
-    settings = get_settings()
-    logger.info("Initializing FireChronicle Backend for region: %s (%s)", settings.ANALYSIS_REGION_ID, settings.ANALYSIS_REGION_NAME)
-    logger.info("Data directory: %s", settings.DATA_DIR)
-    
-    # Initialize DuckDB views
-    try:
-        db = get_db()
-        logger.info("DuckDB session active with parquet views registered.")
-    except Exception as e:
-        logger.error("Failed to initialize DuckDB views: %s", e)
-
-    yield
-
-    logger.info("Shutting down FireChronicle Backend...")
-
 
 def create_app() -> FastAPI:
     """Build and configure the FastAPI application."""
@@ -123,5 +105,58 @@ def create_app() -> FastAPI:
 
     return app
 
+from fastapi import FastAPI
+from contextlib import asynccontextmanager
+from fastapi.middleware.cors import CORSMiddleware
 
+from app.db import get_db, validate_and_initialize_db
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    FastAPI Lifespan Context Manager:
+    - Runs BEFORE the server starts listening for requests.
+    - Calls validate_and_initialize_db().
+    - If duplicates or errors occur, sys.exit(1) inside db.py kills the process instantly,
+      preventing the API from appearing operational.
+    """
+    print("[Startup] Initializing FireChronicle Backend...")
+
+    # Run our strict validation & connection routine
+    db_conn = validate_and_initialize_db(require_full_nine_years=False)
+
+    # Store the active DuckDB connection in app state so endpoints can query it
+    app.state.db = db_conn
+
+    yield  # Server runs and handles requests here...
+
+    # --- SHUTDOWN PHASE ---
+    print("[Shutdown] Closing database connection...")
+    get_db.cache_clear()
+    db_conn.close()
+
+# Initialize the FastAPI app with the lifespan handler
+app = FastAPI(
+    title="FireChronicle Backend",
+    version="1.0.0",
+    lifespan=lifespan
+)
+
+# Secure CORS Middleware (restricting to your frontend origin)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],  # Update to your production frontend URL later
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+@app.get("/health")
+def health_check():
+    """Health check endpoint. Only reachable if startup validation passed successfully."""
+    return {
+        "status": "operational",
+        "database_integrity": "verified",
+        "model_status": "not_ready"  # Explicitly flagging real model as not ready
+    }
 app = create_app()

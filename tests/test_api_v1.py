@@ -88,8 +88,8 @@ def test_era_separation_in_timeseries():
     data = response.json()
     items = data["items"]
     assert len(items) > 0
-    assert data["contains_synthetic_demo_data"] is True
-    assert data["synthetic_demo_notice"] is not None
+    assert data["contains_synthetic_demo_data"] is False
+    assert data["synthetic_demo_notice"] is None
 
     for pt in items:
         yr = pt["year"]
@@ -104,7 +104,7 @@ def test_era_separation_in_timeseries():
 
 
 def test_harmonized_endpoint_and_null_all_isolation():
-    """Verify /api/v1/harmonized alias, synthetic demo flags, and strict D+N completeness for ALL."""
+    """Verify /api/v1/harmonized alias, NB2 production flags, and statewide + block-level NULL handling."""
     res_all = client.get("/api/v1/harmonized?region_id=BR-PA&start_year=2005&end_year=2005&daynight=ALL")
     res_d = client.get("/api/v1/harmonized?region_id=BR-PA&start_year=2005&end_year=2005&daynight=D")
     res_n = client.get("/api/v1/harmonized?region_id=BR-PA&start_year=2005&end_year=2005&daynight=N")
@@ -114,19 +114,20 @@ def test_harmonized_endpoint_and_null_all_isolation():
     d_map = {pt["period"]: pt for pt in res_d.json()["items"]}
     n_map = {pt["period"]: pt for pt in res_n.json()["items"]}
 
-    # 2005-08 has complete D & N across all blocks
+    # Statewide monthly aggregation uses COUNT > 0 so months with valid blocks are non-null
     assert all_map["2005-08"]["count"] is not None
-    assert all_map["2005-08"]["is_synthetic_demo"] is True
-    assert all_map["2005-08"]["model_version"] == "ratio-baseline-v1.0-synthetic-demo"
-    assert math.isclose(all_map["2005-08"]["count"], round(d_map["2005-08"]["count"] + n_map["2005-08"]["count"], 1), abs_tol=0.2)
+    assert all_map["2005-08"]["count"] > 0
+    assert all_map["2005-08"]["is_synthetic_demo"] is False
+    assert all_map["2005-08"]["model_version"] == "firechronicle-nb2-v1.0"
+    assert all_map["2005-08"]["prediction_status"] == PredictionStatus.OK_PRELIMINARY.value
+    assert d_map["2005-08"]["count"] is not None
+    assert n_map["2005-08"]["count"] is not None
 
-    # 2005-09 has block -101_-10 with N=NULL -> N and ALL must preserve NULL (never coerce NULL to 0)
+    # 2005-09 has some NULL blocks (e.g. -101_-10 N=NULL) but many valid blocks -> statewide total is non-null
     assert d_map["2005-09"]["count"] is not None
-    assert n_map["2005-09"]["count"] is None
-    assert n_map["2005-09"]["prediction_status"] == PredictionStatus.INSUFFICIENT_COVERAGE.value
-    assert all_map["2005-09"]["count"] is None
-    assert all_map["2005-09"]["prediction_status"] == PredictionStatus.INSUFFICIENT_COVERAGE.value
-    assert all_map["2005-09"]["coverage_status"] == "insufficient"
+    assert n_map["2005-09"]["count"] is not None
+    assert all_map["2005-09"]["count"] is not None
+    assert all_map["2005-09"]["prediction_status"] == PredictionStatus.OK_PRELIMINARY.value
 
 
 # =============================================================================
@@ -229,7 +230,7 @@ def test_calibration_null_safe_log_ratio():
 
 
 def test_predict_precomputed_historical_retrieval():
-    """Precomputed historical predictions (pre-2012) are served instantly from parquet."""
+    """Precomputed historical predictions (pre-2012) are served instantly from NB2 parquet."""
     payload = {
         "region_id": "BR-PA",
         "year": 2005,
@@ -239,26 +240,29 @@ def test_predict_precomputed_historical_retrieval():
     response = client.post("/api/v1/predict", json=payload)
     assert response.status_code == 200
     body = response.json()
-    assert body["is_synthetic_demo"] is True
+    assert body["is_synthetic_demo"] is False
     pred = body["predictions"][0]
     assert pred["prediction_status"] == PredictionStatus.OK_PRELIMINARY.value
     assert pred["estimated_viirs_count"] is not None
+    assert math.isclose(pred["estimated_viirs_count"], 191.04, abs_tol=0.01)
     assert pred["estimated_count"] == pred["estimated_viirs_count"]
-    assert pred["model_version"] == "ratio-baseline-v1.0-synthetic-demo"
+    assert pred["model_version"] == "firechronicle-nb2-v1.0"
     assert pred["measurement_unit"] == "VIIRS_S-NPP-equivalent_detection_count"
-    assert pred["is_synthetic_demo"] is True
+    assert pred["value_type"] == ValueType.ESTIMATED.value
+    assert pred["calibration_scale_km"] == 50
+    assert pred["is_synthetic_demo"] is False
 
-    # Block -101_-10 in 2005-09 has D=96.0 and N=NULL -> N and ALL must return None (NOT 96.0)
+    # Block -101_-10 in 2005-09 has D=131.52 and N=NULL -> N and ALL must return None (NOT 131.52)
     res_d = client.post("/api/v1/predict", json={"region_id": "BR-PA", "year": 2005, "month": 9, "daynight": "D", "block_id": "-101_-10"})
     res_n = client.post("/api/v1/predict", json={"region_id": "BR-PA", "year": 2005, "month": 9, "daynight": "N", "block_id": "-101_-10"})
     res_all = client.post("/api/v1/predict", json={"region_id": "BR-PA", "year": 2005, "month": 9, "daynight": "ALL", "block_id": "-101_-10"})
-    assert res_d.json()["predictions"][0]["estimated_count"] == 96.0
+    assert math.isclose(res_d.json()["predictions"][0]["estimated_count"], 131.52, abs_tol=0.01)
     assert res_n.json()["predictions"][0]["estimated_count"] is None
-    assert res_n.json()["predictions"][0]["prediction_status"] == PredictionStatus.INSUFFICIENT_COVERAGE.value
-    assert res_n.json()["predictions"][0]["coverage_status"] == "insufficient"
+    assert res_n.json()["predictions"][0]["prediction_status"] == PredictionStatus.MISSING_REQUIRED_FEATURE.value
+    assert res_n.json()["predictions"][0]["model_version"] == "firechronicle-nb2-v1.0"
     assert res_all.json()["predictions"][0]["estimated_count"] is None
-    assert res_all.json()["predictions"][0]["prediction_status"] == PredictionStatus.INSUFFICIENT_COVERAGE.value
-    assert res_all.json()["predictions"][0]["coverage_status"] == "insufficient"
+    assert res_all.json()["predictions"][0]["prediction_status"] == PredictionStatus.MISSING_REQUIRED_FEATURE.value
+    assert res_all.json()["predictions"][0]["model_version"] == "firechronicle-nb2-v1.0"
 
 
 def test_predict_missing_feature_null_preservation():
@@ -359,10 +363,11 @@ def test_endpoint_5_metrics():
     res = client.get("/api/v1/sensor-lab/metrics")
     assert res.status_code == 200
     d = res.json()
-    assert d["model_version"] == "ratio-baseline-v1.0-synthetic-demo"
-    assert "metrics" in d
-    assert "mean_absolute_error" in d["metrics"]
-    assert d["fitted_multiplier_k"] == 3.2
+    assert d["model_version"] == "firechronicle-nb2-v1.0"
+    assert d["scientific_status"] == "EMPIRICALLY_CALIBRATED_RESEARCH_SPECIFICATION"
+    assert "metrics" in d and d["metrics"] is not None
+    assert "mae" in d["metrics"]
+    assert d["final_full_training_fit_statistics"]["baseline_ratio_multiplier_k"] > 6.0
 
 
 def test_endpoint_6_model_info():
@@ -371,12 +376,13 @@ def test_endpoint_6_model_info():
         res = client.get(url)
         assert res.status_code == 200
         d = res.json()
-        assert d["model_version"] == "ratio-baseline-v1.0-synthetic-demo"
-        assert d["is_production_ready"] is False
-        assert "features" in d and "modis_count" in d["features"]
-        assert "limitations" in d and len(d["limitations"]) > 0
+        assert d["model_version"] == "firechronicle-nb2-v1.0"
+        assert d["scientific_status"] == "EMPIRICALLY_CALIBRATED_RESEARCH_SPECIFICATION"
+        assert d["is_production_ready"] is True
+        assert "feature_schema" in d and "log1p_modis" in d["feature_schema"]
+        assert "scientific_limitations" in d and len(d["scientific_limitations"]) > 0
         assert d["validation_metrics"] is not None
-        assert "metrics" in d["validation_metrics"]
+        assert "metrics" in d["validation_metrics"] and d["validation_metrics"]["metrics"] is not None
 
 
 def test_ml_handoff_estimated_count_alias_and_50km_aggregation():

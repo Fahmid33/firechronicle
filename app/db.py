@@ -185,11 +185,11 @@ class DuckDBManager:
 
         has_canonical = (data_dir / "para_50km_grid_canonical.parquet").exists()
 
-        # 1. Multi-year firechronicle_master via DuckDB glob + explicit duplicate check + canonical LEFT JOIN
+        # 1. Multi-year firechronicle_master via DuckDB glob + union_by_name + duplicate check + canonical LEFT JOIN
         master_expr = self._resolve_glob_expr("firechronicle_master_*.parquet", "firechronicle_master.parquet")
         if master_expr:
             self.con.execute(
-                f"CREATE OR REPLACE VIEW firechronicle_master_sparse AS SELECT * FROM '{master_expr}'"
+                f"CREATE OR REPLACE VIEW firechronicle_master_sparse AS SELECT * FROM read_parquet('{master_expr}', union_by_name=true)"
             )
             logger.info("Registered DuckDB sparse master view -> %s", master_expr)
             self._assert_no_duplicate_keys("firechronicle_master_sparse")
@@ -256,7 +256,9 @@ class DuckDBManager:
         for view_name, (glob_pat, fb) in multi_views.items():
             expr = self._resolve_glob_expr(glob_pat, fb)
             if expr:
-                self.con.execute(f"CREATE OR REPLACE VIEW {view_name} AS SELECT * FROM '{expr}'")
+                self.con.execute(
+                    f"CREATE OR REPLACE VIEW {view_name} AS SELECT * FROM read_parquet('{expr}', union_by_name=true)"
+                )
                 logger.info("Registered DuckDB view '%s' -> %s", view_name, expr)
 
         est_path = data_dir / "estimated_viirs_block_month.parquet"
@@ -282,7 +284,9 @@ class DuckDBManager:
         # 3. backend_monthly (plus alias overlap_calibration) using multi-year glob
         bm_expr = self._resolve_glob_expr("backend_monthly_*.parquet", "backend_monthly.parquet")
         if bm_expr:
-            self.con.execute(f"CREATE OR REPLACE VIEW backend_monthly AS SELECT * FROM '{bm_expr}'")
+            self.con.execute(
+                f"CREATE OR REPLACE VIEW backend_monthly AS SELECT * FROM read_parquet('{bm_expr}', union_by_name=true)"
+            )
             self.con.execute("CREATE OR REPLACE VIEW overlap_calibration AS SELECT * FROM backend_monthly")
             logger.info("Registered DuckDB view 'backend_monthly' (and alias 'overlap_calibration') -> %s", bm_expr)
         elif master_expr:
@@ -333,7 +337,7 @@ class DuckDBManager:
                 raw_selects.append(
                     f"SELECT sensor_id, region_id, latitude, longitude, acq_date, acq_time, "
                     f"daynight, satellite, instrument, CAST(confidence AS VARCHAR) AS confidence, "
-                    f"frp, grid_id, block_id FROM read_parquet('{expr}')"
+                    f"frp, grid_id, block_id FROM read_parquet('{expr}', union_by_name=true)"
                 )
 
         if raw_selects:
@@ -371,10 +375,14 @@ class DuckDBManager:
         # 5. Smart coverage_para view adapter using multi-year coverage_para_*.parquet glob (never coercing 'verified')
         cov_expr = self._resolve_glob_expr("coverage_para_*.parquet", "coverage_para.parquet")
         if cov_expr:
-            cols_info = self.con.execute(f"DESCRIBE SELECT * FROM '{cov_expr}'").fetchall()
+            cols_info = self.con.execute(
+                f"DESCRIBE SELECT * FROM read_parquet('{cov_expr}', union_by_name=true)"
+            ).fetchall()
             col_names = {r[0] for r in cols_info}
             if {"sensor", "source_product", "observation_evidence"}.issubset(col_names):
-                self.con.execute(f"CREATE OR REPLACE VIEW coverage_para_raw AS SELECT * FROM '{cov_expr}'")
+                self.con.execute(
+                    f"CREATE OR REPLACE VIEW coverage_para_raw AS SELECT * FROM read_parquet('{cov_expr}', union_by_name=true)"
+                )
                 self.con.execute("""
                     CREATE OR REPLACE VIEW coverage_para AS
                     SELECT
@@ -399,14 +407,15 @@ class DuckDBManager:
                 """)
                 logger.info("Registered multi-year aggregated DuckDB view 'coverage_para' from %s.", cov_expr)
             else:
-                self.con.execute(f"CREATE OR REPLACE VIEW coverage_para AS SELECT * FROM '{cov_expr}'")
+                self.con.execute(
+                    f"CREATE OR REPLACE VIEW coverage_para AS SELECT * FROM read_parquet('{cov_expr}', union_by_name=true)"
+                )
                 logger.info("Registered DuckDB view 'coverage_para' -> %s", cov_expr)
         else:
             logger.warning("Parquet file 'coverage_para' not found in %s", data_dir)
 
         # 6. Canonical 568-block GeoJSON generation if canonical grid files exist
         build_canonical_blocks_geojson(data_dir, write_output=True)
-
     # -------------------------------------------------------------------------
     # 1. TIME SERIES / SUMMARY QUERY (with daynight filter support)
     # -------------------------------------------------------------------------
@@ -502,16 +511,16 @@ class DuckDBManager:
                     year,
                     month,
                     CASE
-                        WHEN BOOL_AND(block_count IS NOT NULL) THEN ROUND(SUM(block_count), 1)
+                        WHEN COUNT(block_count) > 0 THEN ROUND(SUM(block_count), 1)
                         ELSE NULL
                     END AS total_count,
                     ROUND(SUM(block_frp), 1) AS total_frp,
                     CASE
-                        WHEN BOOL_AND(block_count IS NOT NULL) THEN MAX(pred_status)
+                        WHEN COUNT(block_count) > 0 THEN MAX(CASE WHEN block_count IS NOT NULL THEN pred_status END)
                         ELSE COALESCE(MAX(CASE WHEN block_count IS NULL THEN pred_status END), 'insufficient_coverage')
                     END AS pred_status,
                     CASE
-                        WHEN BOOL_AND(block_count IS NOT NULL) THEN MAX(cov_status)
+                        WHEN COUNT(block_count) > 0 THEN MAX(CASE WHEN block_count IS NOT NULL THEN cov_status END)
                         ELSE COALESCE(MAX(CASE WHEN block_count IS NULL THEN cov_status END), 'insufficient')
                     END AS cov_status,
                     MAX(model_version) AS model_version,
@@ -528,16 +537,16 @@ class DuckDBManager:
                     e.year,
                     e.month,
                     CASE
-                        WHEN BOOL_AND(e.estimated_count IS NOT NULL) THEN ROUND(SUM(e.estimated_count), 1)
+                        WHEN COUNT(e.estimated_count) > 0 THEN ROUND(SUM(e.estimated_count), 1)
                         ELSE NULL
                     END AS total_count,
                     ROUND(SUM(m.modis_frp_sum), 1) AS total_frp,
                     CASE
-                        WHEN BOOL_AND(e.estimated_count IS NOT NULL) THEN MAX(e.prediction_status)
+                        WHEN COUNT(e.estimated_count) > 0 THEN MAX(CASE WHEN e.estimated_count IS NOT NULL THEN e.prediction_status END)
                         ELSE COALESCE(MAX(CASE WHEN e.estimated_count IS NULL THEN e.prediction_status END), 'insufficient_coverage')
                     END AS pred_status,
                     CASE
-                        WHEN BOOL_AND(e.estimated_count IS NOT NULL) THEN MAX(e.coverage_status)
+                        WHEN COUNT(e.estimated_count) > 0 THEN MAX(CASE WHEN e.estimated_count IS NOT NULL THEN e.coverage_status END)
                         ELSE COALESCE(MAX(CASE WHEN e.estimated_count IS NULL THEN e.coverage_status END), 'insufficient')
                     END AS cov_status,
                     MAX(e.model_version) AS model_version,
@@ -1369,3 +1378,19 @@ class DuckDBManager:
 def get_db() -> DuckDBManager:
     """Return cached DuckDBManager instance."""
     return DuckDBManager()
+
+
+import sys
+
+def validate_and_initialize_db(require_full_nine_years: bool = False):
+    """Initialize DuckDBManager (checks duplicate keys) and validate 2012-2020 ground-truth bounds."""
+    print("[DB Init] Initializing DuckDBManager and verifying 2002-2020 archive...")
+    try:
+        db = get_db()
+        summary = db.validate_multiyear_totals(require_full_nine_years=require_full_nine_years)
+        print(f"✅ Database Integrity & Multi-Year Bounds Verified: {summary}")
+        return db.con
+    except Exception as e:
+        print(f"\n🚨 FATAL DATABASE STARTUP ERROR: {e}")
+        print("API startup aborted to prevent serving invalid or corrupted data.")
+        sys.exit(1)

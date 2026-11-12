@@ -1,27 +1,135 @@
 {
-  "model_version": "ratio-baseline-v1.0-synthetic-demo",
-  "scientific_status": "DEMO / SYNTHETIC / NOT SCIENTIFICALLY VALIDATED",
-  "is_production_validation": false,
-  "evaluation_dataset": "synthetic_overlap_BR-PA.csv (year=2020, block_id=121_-51, N=6)",
-  "held_out_strategy": "Single joint spatio-temporal holdout slice on synthetic test fixture (year=2020, block_id=121_-51). Note: This single hold-out slice demonstrates pipeline metrics only; it does NOT claim separate or orthogonal temporal and geographic cross-validation folds.",
-  "eligible_sample_count": 6,
-  "excluded_records_count": 0,
-  "unknown_coverage_sample_count": 6,
-  "coverage_policy": "PRELIMINARY_UNADJUSTED_CALIBRATION: Records with 'unknown' or 'coverage_unadjusted' status are included for preliminary baseline calibration under Rulebook Section 3 & 4. They do NOT represent verified clear-sky observation proof or verified fire-free zeros.",
-  "fitted_multiplier_k": 3.2,
-  "metrics": {
-    "mean_absolute_error": 0.1,
-    "aggregate_count_bias_percent": 0.0277,
-    "signed_aggregate_count_error": 0.2,
-    "mean_poisson_deviance": 0.0008,
-    "total_poisson_deviance": 0.0051,
-    "poisson_deviance_scale": "mean_poisson_deviance is normalized per block-month record (2/N * sum(d_i)); total_poisson_deviance is unnormalized sum (2 * sum(d_i)).",
-    "sum_observed_viirs": 723,
-    "sum_estimated_viirs": 723.2
+  "model_version": "firechronicle-nb2-v1.0",
+  "scientific_status": "EMPIRICALLY_CALIBRATED_RESEARCH_SPECIFICATION",
+  "held_out_validation_provenance": "Evaluated on independent temporal and spatial partitions of 2012-2020 overlap collection",
+  "strategy_A_temporal_holdout": {
+    "validation_population": "Paired-positive satellite detections (modis_count > 0 and viirs_count > 0)",
+    "train_years": [
+      2012,
+      2013,
+      2014,
+      2015,
+      2016,
+      2017,
+      2018
+    ],
+    "test_years": [
+      2019,
+      2020
+    ],
+    "train_records": 17919,
+    "test_records": 5091,
+    "model_0_ratio": {
+      "fitted_k": 5.8696,
+      "mae": 44.9884,
+      "mean_poisson_deviance": 55.3136,
+      "total_poisson_deviance": 281601.77,
+      "aggregate_bias_pct": -12.9106,
+      "monthly_corr": 0.9854,
+      "peak_month_match": true,
+      "annual_breakdown": {
+        "2019": {
+          "mae": 39.4542,
+          "mean_deviance": 42.45,
+          "bias_pct": -2.9827
+        },
+        "2020": {
+          "mae": 50.2615,
+          "mean_deviance": 67.5704,
+          "bias_pct": -19.9633
+        }
+      }
+    },
+    "model_1_negative_binomial": {
+      "dispersion_alpha": 0.329,
+      "converged": true,
+      "mae": 35.4374,
+      "mean_poisson_deviance": 25.0056,
+      "total_poisson_deviance": 127303.56,
+      "aggregate_bias_pct": -11.5032,
+      "monthly_corr": 0.9772,
+      "peak_month_match": false,
+      "annual_breakdown": {
+        "2019": {
+          "mae": 28.8864,
+          "mean_deviance": 17.9739,
+          "bias_pct": -3.2563
+        },
+        "2020": {
+          "mae": 41.6794,
+          "mean_deviance": 31.7056,
+          "bias_pct": -17.3616
+        }
+      }
+    }
   },
-  "scientific_limitations": [
-    "Cannot recover missed detections when modis_count is zero.",
-    "Evaluated strictly on synthetic mock fixture; not validated against true NASA FIRMS Par\u00e1 observations.",
-    "A larger, multi-year empirical dataset will be required to execute separate temporal and spatial holdout experiments."
-  ]
+  "strategy_B_geographic_holdout": {
+    "validation_population": "Paired-positive satellite detections across held-out 50 km blocks",
+    "total_active_blocks": 470,
+    "train_blocks_count": 376,
+    "test_blocks_count": 94,
+    "train_records": 17863,
+    "test_records": 5147,
+    "model_0_ratio": {
+      "fitted_k": 5.9849,
+      "mae": 53.8686,
+      "mean_poisson_deviance": 56.3544,
+      "total_poisson_deviance": 290056.04,
+      "aggregate_bias_pct": -4.3771,
+      "monthly_corr": 0.9926
+    },
+    "model_1_negative_binomial": {
+      "dispersion_alpha": 0.347,
+      "converged": true,
+      "mae": 35.7903,
+      "mean_poisson_deviance": 20.9497,
+      "total_poisson_deviance": 107828.15,
+      "aggregate_bias_pct": 4.5479,
+      "monthly_corr": 0.9936
+    }
+  },
+  "sensitivity_experiment_zero_imputation": {
+    "description": "Sensitivity evaluation of zero-MODIS observations where VIIRS detected fires (modis_count imputed as 0)",
+    "clean_imputed_rows_count": 18747,
+    "test_years": [
+      2019,
+      2020
+    ],
+    "test_imputed_subset_only": {
+      "n_records": 4168,
+      "observed_viirs_sum": 28486,
+      "model_0_ratio": {
+        "predicted_sum": 0.0,
+        "mae": 6.8345,
+        "mean_poisson_deviance": 306.2053,
+        "aggregate_bias_pct": -100.0
+      },
+      "model_1_negative_binomial": {
+        "predicted_sum": 29964.01,
+        "mae": 6.2107,
+        "mean_poisson_deviance": 8.5952,
+        "aggregate_bias_pct": 5.1885
+      }
+    },
+    "test_combined_dataset_paired_plus_imputed": {
+      "n_records": 9259,
+      "observed_viirs_sum": 517222,
+      "model_0_ratio": {
+        "mae": 28.6869,
+        "aggregate_bias_pct": -12.7832
+      },
+      "model_1_negative_binomial": {
+        "mae": 21.6859,
+        "aggregate_bias_pct": -9.6723
+      }
+    }
+  },
+  "final_full_training_fit_statistics": {
+    "n_records": 23010,
+    "log_likelihood": -105163.79012827307,
+    "aic": 210357.58025654615,
+    "bic": 210478.2355192916,
+    "dispersion_alpha": 0.3394298279543902,
+    "baseline_ratio_multiplier_k": 6.053846850293665
+  }
 }

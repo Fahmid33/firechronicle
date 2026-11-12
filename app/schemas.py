@@ -11,7 +11,7 @@ Non-negotiable Guardrails enforced:
 
 from enum import Enum
 from typing import Any, Dict, List, Literal, Optional, Union
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class RegionId(str, Enum):
@@ -277,6 +277,19 @@ class ValidationMetricsResponse(BaseModel):
     yearly_metrics: Optional[List[Dict[str, Any]]] = None
     biome_metrics: Optional[List[Dict[str, Any]]] = None
     methodology_notes: Optional[str] = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def populate_metrics_from_nb2_strategy_a(cls, data: Any) -> Any:
+        """Populate `metrics` from `strategy_A_temporal_holdout.model_1_negative_binomial` when absent."""
+        if isinstance(data, dict) and data.get("metrics") is None:
+            strat_a = data.get("strategy_A_temporal_holdout")
+            if isinstance(strat_a, dict):
+                nb2_metrics = strat_a.get("model_1_negative_binomial")
+                if isinstance(nb2_metrics, dict):
+                    data = dict(data)
+                    data["metrics"] = nb2_metrics
+        return data
 
 
 # ---------------------------------------------------------

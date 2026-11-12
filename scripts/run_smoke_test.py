@@ -88,6 +88,9 @@ def main():
         res = client.get("/api/v1/sensor-lab/metrics")
         assert res.status_code == 200
         metrics_body = res.json()
+        assert metrics_body.get("model_version") == "firechronicle-nb2-v1.0"
+        assert metrics_body.get("scientific_status") == "EMPIRICALLY_CALIBRATED_RESEARCH_SPECIFICATION"
+        assert metrics_body.get("metrics") is not None
         print("   Status:", res.status_code, "Model version:", metrics_body.get("model_version"), "Metrics:", metrics_body.get("metrics"))
 
         print("9. Testing GET /api/v1/model-info and /api/v1/model/info")
@@ -95,11 +98,14 @@ def main():
         assert res_info.status_code == 200
         res = client.get("/api/v1/model/info")
         assert res.status_code == 200
+        assert res.json().get("model_version") == "firechronicle-nb2-v1.0"
+        assert res.json().get("scientific_status") == "EMPIRICALLY_CALIBRATED_RESEARCH_SPECIFICATION"
         print("   Status:", res.status_code, "Model:", res.json().get("model_version"), "Scientific Status:", res.json().get("scientific_status"))
 
         print("9b. Testing GET /api/v1/harmonized")
         res_harm = client.get("/api/v1/harmonized?region_id=BR-PA&daynight=ALL")
         assert res_harm.status_code == 200
+        assert res_harm.json().get("contains_synthetic_demo_data") is False
         print("   Status:", res_harm.status_code, "Items:", res_harm.json().get("total_months"), "Synthetic Demo:", res_harm.json().get("contains_synthetic_demo_data"))
 
         print("10. Testing POST /api/v1/predict")

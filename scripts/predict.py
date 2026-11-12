@@ -49,7 +49,12 @@ def predict_single_block(
         return None, "out_of_training_range", f"Invalid negative modis_count: {m_count}"
 
     # 4. Production safety guard: block heuristic fallback outside development/test
-    env = (os.getenv("ENVIRONMENT") or get_settings().ENVIRONMENT or "development").strip().lower()
+    env = (
+        os.getenv("APP_ENV")
+        or os.getenv("ENVIRONMENT")
+        or get_settings().ENVIRONMENT
+        or "development"
+    ).strip().lower()
     if env not in ("development", "dev", "local", "test", "testing"):
         raise NotImplementedError("Real ML model not yet connected")
 

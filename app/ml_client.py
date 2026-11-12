@@ -184,8 +184,8 @@ class MLModelClient:
                             MAX(CASE WHEN daynight = 'N' THEN estimated_count END) AS n_val,
                             MAX(CASE WHEN estimated_count IS NULL THEN prediction_status END) AS null_pred_status,
                             MAX(CASE WHEN estimated_count IS NULL THEN coverage_status END) AS null_cov_status,
-                            MAX(prediction_status) AS any_pred_status,
-                            MAX(coverage_status) AS any_cov_status,
+                            MAX(CASE WHEN estimated_count IS NOT NULL THEN prediction_status END) AS valid_pred_status,
+                            MAX(CASE WHEN estimated_count IS NOT NULL THEN coverage_status END) AS valid_cov_status,
                             MAX(model_version) AS model_version,
                             MAX(measurement_unit) AS measurement_unit,
                             MAX(value_type) AS value_type,
@@ -197,16 +197,16 @@ class MLModelClient:
                     )
                     SELECT
                         CASE
-                            WHEN d_val IS NOT NULL AND n_val IS NOT NULL THEN ROUND(d_val + n_val, 1)
+                            WHEN d_val IS NOT NULL AND n_val IS NOT NULL THEN ROUND(d_val + n_val, 2)
                             ELSE NULL
                         END AS estimated_count,
                         CASE
-                            WHEN d_val IS NOT NULL AND n_val IS NOT NULL THEN any_pred_status
-                            ELSE COALESCE(null_pred_status, 'insufficient_coverage')
+                            WHEN d_val IS NOT NULL AND n_val IS NOT NULL THEN COALESCE(valid_pred_status, 'ok_preliminary')
+                            ELSE COALESCE(null_pred_status, 'missing_required_feature')
                         END AS prediction_status,
                         CASE
-                            WHEN d_val IS NOT NULL AND n_val IS NOT NULL THEN any_cov_status
-                            ELSE COALESCE(null_cov_status, 'insufficient')
+                            WHEN d_val IS NOT NULL AND n_val IS NOT NULL THEN valid_cov_status
+                            ELSE COALESCE(null_cov_status, 'unknown')
                         END AS coverage_status,
                         model_version,
                         measurement_unit,
@@ -383,6 +383,12 @@ class MLModelClient:
             daynight=request.daynight or "ALL",
             status=resp_status,
             error=resp_error,
+            synthetic_demo_notice=(
+                "UNVALIDATED DEV-ONLY HEURISTIC FALLBACK (local-empirical-v1.2-dev-only). "
+                "Not scientifically validated; do not use in production."
+                if resp_status == "ok"
+                else None
+            ),
             predictions=results,
             total_predictions=len(results),
         )
