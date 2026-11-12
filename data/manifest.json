@@ -1,0 +1,50 @@
+{
+  "region_id": "BR-PA",
+  "region": "Pará, Brazil",
+  "study_boundary": "IBGE PA_UF_2024.zip",
+  "boundary_release_year": 2024,
+  "boundary_crs_original": "EPSG:4674",
+  "boundary_rule": "shapely.covers — included on edge",
+  "grid_crs": "EPSG:6933",
+  "grid_size_m": 10000,
+  "block_size_m": 50000,
+  "source_files": {
+    "modis_2019_Brazil.csv": {
+      "sha256": "2a14ae9be81ff99d5d480b667c0d5c508e65e931fa0927c7abe5832980380bd8",
+      "bytes": 29901181
+    },
+    "viirs-snpp_2019_Brazil.csv": {
+      "sha256": "c44383a220c7630c91e4246f6b8eb6c5f27c989f2af9a948c94923ac4870cb8d",
+      "bytes": 116363499
+    },
+    "PA_UF_2024.zip": {
+      "sha256": "5ddadf2ef1e9900f159da422513844f819bf3447c41efffad1c05ae5df9adbd0",
+      "bytes": 4702425
+    }
+  },
+  "created_at_utc": "2026-11-10T17:40:41.707281+00:00",
+  "MODIS_filter": "satellite in ['Aqua','A']",
+  "VIIRS_filter": "satellite in ['N','Suomi NPP','S-NPP']",
+  "monthly_note": "Counts of positive satellite detection records, not independent fires; no verified zero/coverage from FIRMS positives alone; monthly blocks are not pass matched",
+  "original_to_para_counts": {
+    "aqua_selected_brazil": 224044,
+    "aqua_para": 33705,
+    "snpp_selected_brazil": 1459285,
+    "snpp_para": 215918
+  },
+  "monthly_counts": {
+    "combined_units": 4638,
+    "both_positive_units": 2484
+  },
+  "output_files": [
+    "para_aqua_modis_2019.parquet",
+    "para_viirs_snpp_2019.parquet",
+    "para_monthly_positive_counts_2019.parquet",
+    "para_both_positive_comparison_2019.parquet",
+    "firechronicle_master_2019.parquet",
+    "overlap_training_2019.parquet",
+    "backend_monthly_2019.parquet",
+    "coverage_para.parquet"
+  ],
+  "contract_notes": "ML 10 cols, backend 12 cols; monthly master 15 cols; coverage companion 12 cols; unknown coverage from positives only"
+}
