@@ -14,6 +14,7 @@ Verifies:
 """
 
 import math
+import os
 import sys
 from pathlib import Path
 
@@ -22,6 +23,7 @@ ROOT_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT_DIR))
 
 from fastapi.testclient import TestClient
+from app.config import get_settings
 from app.main import app
 
 def main():
@@ -119,17 +121,25 @@ def main():
         assert res.json()["master_dataset_available"] is True
 
         print("12. Testing ML Bridge Webhook Auth")
-        res = client.post(
-            "/ml-bridge/sync-predictions",
-            json={
-                "batch_id": "test-sync-01",
-                "model_version": "v1.2",
-                "records": [{"block_id": "-101_-8", "year": 2008, "month": 8, "estimated_viirs_count": 92.5}]
-            },
-            headers={"X-API-Key": "firechronicle_webhook_sync_key_2026"}
-        )
-        print("   Status:", res.status_code, res.json())
-        assert res.status_code == 200
+        smoke_webhook_key = "smoke-test-ephemeral-key"
+        os.environ["WEBHOOK_API_KEY"] = smoke_webhook_key
+        get_settings.cache_clear()
+        try:
+            res = client.post(
+                "/ml-bridge/sync-predictions",
+                json={
+                    "batch_id": "test-sync-01",
+                    "model_version": "v1.2",
+                    "records": [{"block_id": "-101_-8", "year": 2008, "month": 8, "estimated_viirs_count": 92.5}]
+                },
+                headers={"X-API-Key": smoke_webhook_key}
+            )
+            print("   Status:", res.status_code, res.json())
+            assert res.status_code == 200
+            assert res.json()["status"] == "demo_acknowledgement_only"
+        finally:
+            os.environ.pop("WEBHOOK_API_KEY", None)
+            get_settings.cache_clear()
 
     print("\n>>> ALL SMOKE TESTS PASSED CLEANLY WITH MASTER DATASET CONTRACT! <<<")
 

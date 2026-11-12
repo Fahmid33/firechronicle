@@ -79,6 +79,7 @@ class TimeSeriesMonthlyPoint(BaseModel):
     label: str  # e.g. "Estimated historical extrapolation", "Observed S-NPP"
     prediction_status: Optional[Union[PredictionStatus, str]] = None
     coverage_status: Optional[Union[CoverageStatus, str]] = None
+    coverage_notes: Optional[str] = None
     model_version: Optional[str] = None
     measurement_unit: Optional[str] = None
     calibration_scale_km: Optional[int] = None
@@ -136,6 +137,7 @@ class SpatialFeatureProperties(BaseModel):
     label: str
     prediction_status: Optional[Union[PredictionStatus, str]] = None
     coverage_status: Optional[Union[CoverageStatus, str]] = None
+    coverage_notes: Optional[str] = None
     model_version: Optional[str] = None
     measurement_unit: Optional[str] = None
     calibration_scale_km: Optional[int] = None
@@ -236,6 +238,7 @@ class CalibrationPair(BaseModel):
     log_ratio: Optional[float] = None  # Strictly null-safe (None when modis<=0 or viirs<=0, no NaN/Inf)
     modis_frp_sum: Optional[float] = None
     viirs_frp_sum: Optional[float] = None
+    coverage_status: Optional[Union[CoverageStatus, str]] = None
 
 
 class CalibrationResponse(BaseModel):
@@ -347,6 +350,7 @@ class SingleBlockPrediction(BaseModel):
     value_type: Optional[ValueType] = ValueType.ESTIMATED
     prediction_status: Optional[Union[PredictionStatus, str]] = None
     coverage_status: Optional[Union[CoverageStatus, str]] = None
+    coverage_notes: Optional[str] = None
     model_version: Optional[str] = None
     measurement_unit: Optional[str] = None
     calibration_scale_km: Optional[int] = None

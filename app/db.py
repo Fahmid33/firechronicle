@@ -57,68 +57,178 @@ class DuckDBManager:
         self.con: duckdb.DuckDBPyConnection = duckdb.connect(self.settings.DUCKDB_PATH)
         self._init_views()
 
-    def _resolve_parquet(self, base_name: str) -> Optional[Path]:
-        """Resolve parquet file path, preferring real *_2019.parquet exports when present."""
+    def _resolve_glob_expr(self, glob_pattern: str, fallback_file: Optional[str] = None) -> Optional[str]:
+        """Resolve a DuckDB glob expression across multi-year parquet files without preferring a single year."""
         data_dir = self.settings.DATA_DIR
-        pilot_path = data_dir / f"{base_name}_2019.parquet"
-        default_path = data_dir / f"{base_name}.parquet"
-        if pilot_path.exists():
-            return pilot_path
-        if default_path.exists():
-            return default_path
+        matched = sorted(data_dir.glob(glob_pattern))
+        if matched:
+            return f"{data_dir.as_posix()}/{glob_pattern}"
+        if fallback_file:
+            fb_path = data_dir / fallback_file
+            if fb_path.exists():
+                return fb_path.as_posix()
         return None
 
+    def _load_audit_period_notes(self) -> Dict[str, str]:
+        """Extract Data Engineer source date/completeness limitations from audit_*.json files."""
+        notes_by_period: Dict[str, str] = {}
+        data_dir = self.settings.DATA_DIR
+        for audit_file in sorted(data_dir.glob("audit_*.json")):
+            try:
+                with open(audit_file, "r", encoding="utf-8") as f:
+                    audit = json.load(f)
+                yr = audit.get("year")
+                viirs_src = (audit.get("source") or {}).get("viirs_snpp") or {}
+                d_min = viirs_src.get("source_date_min")
+                if yr == 2012 and d_min and d_min > "2012-01-01":
+                    notes_by_period["2012-01"] = (
+                        f"Partial January 2012 availability: VIIRS S-NPP archive begins {d_min} "
+                        f"({audit_file.name})."
+                    )
+            except Exception as e:
+                logger.warning("Could not parse audit metadata %s: %s", audit_file, e)
+        return notes_by_period
+
     def _init_views(self) -> None:
-        """Register DuckDB views with transparent 2019 pilot & canonical grid adapters."""
+        """Register DuckDB views using multi-year glob patterns and canonical dense-grid joins."""
         data_dir = self.settings.DATA_DIR
 
-        # 1. Core tables with _2019 resolution
-        resolved_tables = {
-            "firechronicle_master": self._resolve_parquet("firechronicle_master"),
-            "overlap_training": self._resolve_parquet("overlap_training"),
-            "overlap_training_full_panel": self._resolve_parquet("overlap_training_full_panel"),
-            "para_grid_canonical": self._resolve_parquet("para_50km_grid_canonical"),
-            "para_grid_geometry": self._resolve_parquet("para_50km_grid_geometry"),
-            "estimated_viirs_block_month": self._resolve_parquet("estimated_viirs_block_month"),
-        }
-
-        for view_name, ppath in resolved_tables.items():
-            if ppath and ppath.exists():
-                clean_path = ppath.as_posix()
-                if view_name == "estimated_viirs_block_month":
-                    est_cols = {
-                        r[0] for r in self.con.execute(f"DESCRIBE SELECT * FROM '{clean_path}'").fetchall()
-                    }
-                    if "estimated_viirs_count" in est_cols and "estimated_count" not in est_cols:
-                        self.con.execute(
-                            f"CREATE OR REPLACE VIEW {view_name} AS "
-                            f"SELECT *, CAST(estimated_viirs_count AS DOUBLE) AS estimated_count FROM '{clean_path}'"
-                        )
-                    elif "estimated_count" in est_cols and "estimated_viirs_count" not in est_cols:
-                        self.con.execute(
-                            f"CREATE OR REPLACE VIEW {view_name} AS "
-                            f"SELECT *, CAST(estimated_count AS DOUBLE) AS estimated_viirs_count FROM '{clean_path}'"
-                        )
-                    else:
-                        self.con.execute(f"CREATE OR REPLACE VIEW {view_name} AS SELECT * FROM '{clean_path}'")
-                else:
-                    self.con.execute(f"CREATE OR REPLACE VIEW {view_name} AS SELECT * FROM '{clean_path}'")
+        # 0. Canonical 50km grid and geometry (required for sparse-to-dense relational join)
+        for view_name, fname in (
+            ("para_grid_canonical", "para_50km_grid_canonical.parquet"),
+            ("para_grid_geometry", "para_50km_grid_geometry.parquet"),
+        ):
+            fpath = data_dir / fname
+            if fpath.exists():
+                clean_path = fpath.as_posix()
+                self.con.execute(f"CREATE OR REPLACE VIEW {view_name} AS SELECT * FROM '{clean_path}'")
                 logger.info("Registered DuckDB view '%s' -> %s", view_name, clean_path)
             else:
                 logger.warning("Parquet file for view '%s' not found in %s", view_name, data_dir)
 
-        if resolved_tables["firechronicle_master"] is not None:
+        has_canonical = (data_dir / "para_50km_grid_canonical.parquet").exists()
+
+        # 1. Multi-year firechronicle_master via DuckDB glob + canonical grid LEFT JOIN sparse master
+        master_expr = self._resolve_glob_expr("firechronicle_master_*.parquet", "firechronicle_master.parquet")
+        if master_expr:
+            self.con.execute(
+                f"CREATE OR REPLACE VIEW firechronicle_master_sparse AS SELECT * FROM '{master_expr}'"
+            )
+            logger.info("Registered DuckDB sparse master view -> %s", master_expr)
+
+            if has_canonical:
+                self.con.execute("""
+                    CREATE OR REPLACE VIEW full_dense_panel AS
+                    SELECT
+                        c.region_id,
+                        c.block_id,
+                        c.block_ix,
+                        c.block_iy,
+                        y.year,
+                        m.month,
+                        dn.daynight
+                    FROM para_grid_canonical c
+                    CROSS JOIN (SELECT DISTINCT year FROM firechronicle_master_sparse) y
+                    CROSS JOIN (SELECT UNNEST(GENERATE_SERIES(1, 12)) AS month) m
+                    CROSS JOIN (SELECT UNNEST(['D', 'N']) AS daynight) dn
+                """)
+                self.con.execute("""
+                    CREATE OR REPLACE VIEW firechronicle_master AS
+                    SELECT
+                        f.region_id,
+                        f.block_id,
+                        f.block_ix,
+                        f.block_iy,
+                        f.year,
+                        f.month,
+                        f.daynight,
+                        s.modis_count,
+                        s.viirs_count,
+                        s.modis_frp_sum,
+                        s.viirs_frp_sum,
+                        COALESCE(s.coverage_status, 'unknown') AS coverage_status,
+                        s.processing_status,
+                        s.modis_source_version,
+                        s.viirs_source_version
+                    FROM full_dense_panel f
+                    LEFT JOIN (
+                        SELECT
+                            region_id,
+                            block_id,
+                            block_ix,
+                            block_iy,
+                            year,
+                            month,
+                            daynight,
+                            modis_count,
+                            viirs_count,
+                            modis_frp_sum,
+                            viirs_frp_sum,
+                            coverage_status,
+                            processing_status,
+                            modis_source_version,
+                            viirs_source_version
+                        FROM firechronicle_master_sparse
+                        QUALIFY ROW_NUMBER() OVER (
+                            PARTITION BY region_id, block_id, year, month, daynight
+                            ORDER BY modis_source_version NULLS LAST, viirs_source_version NULLS LAST
+                        ) = 1
+                    ) s
+                      ON f.region_id = s.region_id
+                     AND f.block_id = s.block_id
+                     AND f.year = s.year
+                     AND f.month = s.month
+                     AND f.daynight = s.daynight
+                """)
+                logger.info(
+                    "Registered canonical dense relational view 'firechronicle_master' (canonical grid LEFT JOIN master sparse)."
+                )
+            else:
+                self.con.execute("CREATE OR REPLACE VIEW firechronicle_master AS SELECT * FROM firechronicle_master_sparse")
+
             self.con.execute("CREATE OR REPLACE VIEW master_block_month AS SELECT * FROM firechronicle_master")
             logger.info("Registered alias view 'master_block_month' -> firechronicle_master")
+        else:
+            logger.warning("No firechronicle_master parquet files found in %s", data_dir)
 
-        # 2. backend_monthly (plus alias overlap_calibration)
-        bm_path = self._resolve_parquet("backend_monthly")
-        if bm_path and bm_path.exists():
-            clean_bm = bm_path.as_posix()
-            self.con.execute(f"CREATE OR REPLACE VIEW backend_monthly AS SELECT * FROM '{clean_bm}'")
+        # 2. Multi-year overlap_training, full panel, and estimated_viirs_block_month
+        multi_views = {
+            "overlap_training": ("overlap_training_[0-9][0-9][0-9][0-9].parquet", "overlap_training.parquet"),
+            "overlap_training_full_panel": ("overlap_training_full_panel_*.parquet", None),
+        }
+        for view_name, (glob_pat, fb) in multi_views.items():
+            expr = self._resolve_glob_expr(glob_pat, fb)
+            if expr:
+                self.con.execute(f"CREATE OR REPLACE VIEW {view_name} AS SELECT * FROM '{expr}'")
+                logger.info("Registered DuckDB view '%s' -> %s", view_name, expr)
+
+        est_path = data_dir / "estimated_viirs_block_month.parquet"
+        if est_path.exists():
+            clean_est = est_path.as_posix()
+            est_cols = {
+                r[0] for r in self.con.execute(f"DESCRIBE SELECT * FROM '{clean_est}'").fetchall()
+            }
+            if "estimated_viirs_count" in est_cols and "estimated_count" not in est_cols:
+                self.con.execute(
+                    f"CREATE OR REPLACE VIEW estimated_viirs_block_month AS "
+                    f"SELECT *, CAST(estimated_viirs_count AS DOUBLE) AS estimated_count FROM '{clean_est}'"
+                )
+            elif "estimated_count" in est_cols and "estimated_viirs_count" not in est_cols:
+                self.con.execute(
+                    f"CREATE OR REPLACE VIEW estimated_viirs_block_month AS "
+                    f"SELECT *, CAST(estimated_count AS DOUBLE) AS estimated_viirs_count FROM '{clean_est}'"
+                )
+            else:
+                self.con.execute(f"CREATE OR REPLACE VIEW estimated_viirs_block_month AS SELECT * FROM '{clean_est}'")
+            logger.info("Registered DuckDB view 'estimated_viirs_block_month' -> %s", clean_est)
+
+        # 3. backend_monthly (plus alias overlap_calibration) using multi-year glob
+        bm_expr = self._resolve_glob_expr("backend_monthly_*.parquet", "backend_monthly.parquet")
+        if bm_expr:
+            self.con.execute(f"CREATE OR REPLACE VIEW backend_monthly AS SELECT * FROM '{bm_expr}'")
             self.con.execute("CREATE OR REPLACE VIEW overlap_calibration AS SELECT * FROM backend_monthly")
-            logger.info("Registered DuckDB view 'backend_monthly' (and alias 'overlap_calibration') -> %s", clean_bm)
-        elif resolved_tables["firechronicle_master"] is not None:
+            logger.info("Registered DuckDB view 'backend_monthly' (and alias 'overlap_calibration') -> %s", bm_expr)
+        elif master_expr:
             derive_monthly_sql = """
                 CREATE OR REPLACE VIEW backend_monthly AS
                 SELECT 
@@ -154,19 +264,19 @@ class DuckDBManager:
             self.con.execute("CREATE OR REPLACE VIEW overlap_calibration AS SELECT * FROM backend_monthly")
             logger.info("Derived 12-column view 'backend_monthly' (and alias 'overlap_calibration') from firechronicle_master.")
 
-        # 3. Dynamic hotspots_para view adapter (UNION ALL 2019 raw sensor files or fallback)
-        raw_hotspot_files = [
-            data_dir / "para_aqua_modis_2019.parquet",
-            data_dir / "para_viirs_snpp_2019.parquet",
+        # 4. Dynamic hotspots_para view adapter across multi-year sensor globs or fallback
+        raw_hotspot_globs = [
+            "para_aqua_modis_*.parquet",
+            "para_viirs_snpp_*.parquet",
         ]
         raw_selects = []
-        for raw_path in raw_hotspot_files:
-            if raw_path.exists():
-                clean_raw = raw_path.as_posix()
+        for raw_pat in raw_hotspot_globs:
+            expr = self._resolve_glob_expr(raw_pat)
+            if expr:
                 raw_selects.append(
                     f"SELECT sensor_id, region_id, latitude, longitude, acq_date, acq_time, "
                     f"daynight, satellite, instrument, CAST(confidence AS VARCHAR) AS confidence, "
-                    f"frp, grid_id, block_id FROM read_parquet('{clean_raw}')"
+                    f"frp, grid_id, block_id FROM read_parquet('{expr}')"
                 )
 
         if raw_selects:
@@ -193,7 +303,7 @@ class DuckDBManager:
                 )
             """
             self.con.execute(hotspots_sql)
-            logger.info("Registered unified DuckDB view 'hotspots_para' from 2019 sensor files.")
+            logger.info("Registered unified DuckDB view 'hotspots_para' from sensor glob files.")
         else:
             fallback_hotspots = data_dir / "hotspots_para.parquet"
             if fallback_hotspots.exists():
@@ -201,14 +311,13 @@ class DuckDBManager:
                 self.con.execute(f"CREATE OR REPLACE VIEW hotspots_para AS SELECT * FROM '{clean_hs}'")
                 logger.info("Registered DuckDB view 'hotspots_para' -> %s", clean_hs)
 
-        # 4. Smart coverage_para view adapter (inspect schema and aggregate Member 1's raw schema)
-        cov_path = self._resolve_parquet("coverage_para")
-        if cov_path and cov_path.exists():
-            clean_cov = cov_path.as_posix()
-            cols_info = self.con.execute(f"DESCRIBE SELECT * FROM '{clean_cov}'").fetchall()
+        # 5. Smart coverage_para view adapter using multi-year coverage_para_*.parquet glob (never coercing 'verified')
+        cov_expr = self._resolve_glob_expr("coverage_para_*.parquet", "coverage_para.parquet")
+        if cov_expr:
+            cols_info = self.con.execute(f"DESCRIBE SELECT * FROM '{cov_expr}'").fetchall()
             col_names = {r[0] for r in cols_info}
             if {"sensor", "source_product", "observation_evidence"}.issubset(col_names):
-                self.con.execute(f"CREATE OR REPLACE VIEW coverage_para_raw AS SELECT * FROM '{clean_cov}'")
+                self.con.execute(f"CREATE OR REPLACE VIEW coverage_para_raw AS SELECT * FROM '{cov_expr}'")
                 self.con.execute("""
                     CREATE OR REPLACE VIEW coverage_para AS
                     SELECT
@@ -220,7 +329,10 @@ class DuckDBManager:
                         BOOL_OR(sensor = 'SNPP_VIIRS') AS viirs_available,
                         BOOL_OR(sensor = 'AQUA_MODIS') AND BOOL_OR(sensor = 'SNPP_VIIRS') AS overlap_available,
                         'observed' AS value_type,
-                        FIRST(coverage_status) AS coverage_status,
+                        COALESCE(
+                            MAX(CASE WHEN LOWER(coverage_status) != 'verified' THEN coverage_status END),
+                            FIRST(coverage_status)
+                        ) AS coverage_status,
                         CAST(COUNT(DISTINCT block_id) AS INTEGER) AS total_blocks_observed,
                         'SNPP_VIIRS' AS satellite_primary,
                         FIRST(notes) AS notes
@@ -228,14 +340,14 @@ class DuckDBManager:
                     GROUP BY region_id, year, month
                     ORDER BY year, month
                 """)
-                logger.info("Registered aggregated DuckDB view 'coverage_para' from Member 1 raw schema (%s).", clean_cov)
+                logger.info("Registered multi-year aggregated DuckDB view 'coverage_para' from %s.", cov_expr)
             else:
-                self.con.execute(f"CREATE OR REPLACE VIEW coverage_para AS SELECT * FROM '{clean_cov}'")
-                logger.info("Registered DuckDB view 'coverage_para' -> %s", clean_cov)
+                self.con.execute(f"CREATE OR REPLACE VIEW coverage_para AS SELECT * FROM '{cov_expr}'")
+                logger.info("Registered DuckDB view 'coverage_para' -> %s", cov_expr)
         else:
             logger.warning("Parquet file 'coverage_para' not found in %s", data_dir)
 
-        # 5. Canonical 568-block GeoJSON generation if canonical grid files exist
+        # 6. Canonical 568-block GeoJSON generation if canonical grid files exist
         build_canonical_blocks_geojson(data_dir, write_output=True)
 
     # -------------------------------------------------------------------------
@@ -391,7 +503,7 @@ class DuckDBManager:
             """
             est_rows = self.con.execute(sql_est, [region_id, start_yr, end_yr, daynight]).fetchall()
 
-        # Step 2: Observed Era (2012+) - actual observed VIIRS S-NPP counts
+        # Step 2: Observed Era (2012+) - actual observed VIIRS S-NPP counts + direct coverage_status passthrough
         sql_obs = f"""
             SELECT 
                 year,
@@ -401,7 +513,8 @@ class DuckDBManager:
                 CASE 
                     WHEN year = 2026 AND month >= 7 THEN 'provisional_nrt'
                     ELSE 'observed'
-                END as val_type
+                END as val_type,
+                MAX(coverage_status) as master_cov_status
             FROM firechronicle_master
             WHERE region_id = ? AND year >= 2012 AND year >= ? AND year <= ? {dn_cond}
             GROUP BY year, month
@@ -409,15 +522,16 @@ class DuckDBManager:
         """
         obs_rows = self.con.execute(sql_obs, [region_id, start_yr, end_yr] + params_dn).fetchall()
 
-        # Step 3: Coverage calendar check
+        # Step 3: Coverage calendar & Data Engineer limitations passthrough
         sql_cov = """
-            SELECT year, month, period, value_type, coverage_status
+            SELECT year, month, period, value_type, coverage_status, notes
             FROM coverage_para
             WHERE region_id = ? AND year >= ? AND year <= ?
             ORDER BY year, month
         """
         cov_rows = self.con.execute(sql_cov, [region_id, start_yr, end_yr]).fetchall()
-        coverage_map = {f"{r[0]}-{r[1]:02d}": (r[3], r[4]) for r in cov_rows}
+        coverage_map = {f"{r[0]}-{r[1]:02d}": (r[3], r[4], r[5]) for r in cov_rows}
+        audit_notes = self._load_audit_period_notes()
 
         combined_data: Dict[str, Dict[str, Any]] = {}
 
@@ -426,11 +540,19 @@ class DuckDBManager:
                 return None
             return CoverageStatus(val) if val in CoverageStatus._value2member_map_ else val
 
+        def _merge_cov_note(period_str: str, base_note: Optional[str]) -> Optional[str]:
+            parts = []
+            if period_str in audit_notes:
+                parts.append(audit_notes[period_str])
+            if base_note:
+                parts.append(base_note)
+            return " | ".join(parts) if parts else None
+
         # Add estimated points (mid-2002 to 2011)
         for row in est_rows:
             yr, mo, cnt, frp, p_stat, c_stat, m_ver, m_unit, cal_km = row
             per = f"{yr}-{mo:02d}"
-            _, cov_cal_status = coverage_map.get(per, ("estimated", None))
+            _, cov_cal_status, cov_note = coverage_map.get(per, ("estimated", None, None))
             eff_cov = c_stat if c_stat is not None else cov_cal_status
             is_synth = bool(m_ver and ("synthetic" in m_ver.lower() or "demo" in m_ver.lower()))
             cnt_val = float(cnt) if cnt is not None else None
@@ -445,6 +567,7 @@ class DuckDBManager:
                 "label": "Estimated historical extrapolation",
                 "prediction_status": p_stat,
                 "coverage_status": _norm_cov(eff_cov),
+                "coverage_notes": _merge_cov_note(per, cov_note),
                 "model_version": m_ver,
                 "measurement_unit": m_unit,
                 "calibration_scale_km": int(cal_km) if cal_km is not None else None,
@@ -456,9 +579,10 @@ class DuckDBManager:
 
         # Add observed points (2012+)
         for row in obs_rows:
-            yr, mo, cnt, frp, vtype_str = row
+            yr, mo, cnt, frp, vtype_str, master_cov_status = row
             per = f"{yr}-{mo:02d}"
-            _, cov_status = coverage_map.get(per, (vtype_str, None))
+            _, cov_status, cov_note = coverage_map.get(per, (vtype_str, None, None))
+            eff_cov = cov_status if cov_status is not None else master_cov_status
             vtype_enum = ValueType.PROVISIONAL_NRT if vtype_str == "provisional_nrt" else ValueType.OBSERVED
             lbl = "Provisional NRT" if vtype_enum == ValueType.PROVISIONAL_NRT else "Observed S-NPP"
 
@@ -472,19 +596,20 @@ class DuckDBManager:
                 "value_type": vtype_enum,
                 "label": lbl,
                 "prediction_status": None,
-                "coverage_status": _norm_cov(cov_status),
+                "coverage_status": _norm_cov(eff_cov),
+                "coverage_notes": _merge_cov_note(per, cov_note),
                 "model_version": None,
                 "measurement_unit": "VIIRS_S-NPP_detection_count",
                 "calibration_scale_km": 50,
                 "frp_total_mw": float(frp) if frp is not None else None,
                 "is_harmonized_estimate": False,
                 "is_synthetic_demo": False,
-                "data_source_tier": "provisional_nrt_observations" if vtype_enum == ValueType.PROVISIONAL_NRT else "pilot_2019_observations",
+                "data_source_tier": "provisional_nrt_observations" if vtype_enum == ValueType.PROVISIONAL_NRT else "observed_firms_archive",
             }
 
         # Fill any missing coverage periods strictly preserving nulls
         for r in cov_rows:
-            yr, mo, per, vtype_str, cov_status = r
+            yr, mo, per, vtype_str, cov_status, cov_note = r
             if per not in combined_data:
                 combined_data[per] = {
                     "year": yr,
@@ -497,6 +622,7 @@ class DuckDBManager:
                     "label": "Data gap or unobserved period",
                     "prediction_status": None,
                     "coverage_status": _norm_cov(cov_status),
+                    "coverage_notes": _merge_cov_note(per, cov_note),
                     "model_version": None,
                     "measurement_unit": None,
                     "calibration_scale_km": 50,
@@ -569,6 +695,7 @@ class DuckDBManager:
         measurement_unit: Optional[str] = None,
         calibration_scale_km: Optional[int] = 50,
         is_synthetic_demo: bool = False,
+        coverage_notes: Optional[str] = None,
     ) -> SpatialFeature:
         """Build a 50km SpatialFeature enforcing strict 50km vs 10km geographic separation."""
         geom = get_block_polygon_geojson(block_ix, block_iy)
@@ -595,6 +722,7 @@ class DuckDBManager:
             label=label,
             prediction_status=prediction_status,
             coverage_status=parsed_cov,
+            coverage_notes=coverage_notes,
             model_version=model_version,
             measurement_unit=measurement_unit,
             calibration_scale_km=calibration_scale_km,
@@ -755,10 +883,21 @@ class DuckDBManager:
                 )
 
         else:
-            # 2012+ observed data from firechronicle_master
+            # 2012+ observed data from canonical dense firechronicle_master (strict NULL + coverage_status passthrough)
             is_nrt = (year == 2026 and month >= 7)
             vtype_enum = ValueType.PROVISIONAL_NRT if is_nrt else ValueType.OBSERVED
             lbl = "Provisional NRT" if vtype_enum == ValueType.PROVISIONAL_NRT else "Observed S-NPP"
+            audit_notes = self._load_audit_period_notes()
+            cov_note_row = self.con.execute(
+                "SELECT notes FROM coverage_para WHERE region_id = ? AND year = ? AND month = ? LIMIT 1",
+                [region_id, year, month],
+            ).fetchone()
+            note_parts = []
+            if period_str in audit_notes:
+                note_parts.append(audit_notes[period_str])
+            if cov_note_row and cov_note_row[0]:
+                note_parts.append(cov_note_row[0])
+            period_cov_note = " | ".join(note_parts) if note_parts else None
 
             sql = f"""
                 SELECT 
@@ -771,6 +910,7 @@ class DuckDBManager:
                 FROM firechronicle_master
                 WHERE region_id = ? AND year = ? AND month = ? {dn_cond}
                 GROUP BY block_id, block_ix, block_iy
+                ORDER BY block_id
             """
             rows = self.con.execute(sql, [region_id, year, month] + params_dn).fetchall()
             for row in rows:
@@ -794,6 +934,7 @@ class DuckDBManager:
                         measurement_unit="VIIRS_S-NPP_detection_count",
                         calibration_scale_km=50,
                         is_synthetic_demo=False,
+                        coverage_notes=period_cov_note,
                     )
                 )
 
@@ -977,6 +1118,7 @@ class DuckDBManager:
 
         if daynight in ("D", "N"):
             conditions.append("daynight = ?")
+            conditions.append("(modis_count IS NOT NULL OR viirs_count IS NOT NULL)")
             params.append(daynight)
             where_clause = " AND ".join(conditions)
 
@@ -995,7 +1137,8 @@ class DuckDBManager:
                         THEN ROUND(LN(CAST(viirs_count AS DOUBLE) / CAST(modis_count AS DOUBLE)), 4) 
                         ELSE NULL 
                     END as log_ratio,
-                    modis_frp_sum, viirs_frp_sum
+                    modis_frp_sum, viirs_frp_sum,
+                    coverage_status
                 FROM firechronicle_master
                 WHERE {where_clause}
                 ORDER BY year, month, block_id
@@ -1021,10 +1164,12 @@ class DuckDBManager:
                         ELSE NULL 
                     END as log_ratio,
                     ROUND(SUM(modis_frp_sum), 1) as sum_modis_frp,
-                    ROUND(SUM(viirs_frp_sum), 1) as sum_viirs_frp
+                    ROUND(SUM(viirs_frp_sum), 1) as sum_viirs_frp,
+                    MAX(coverage_status) as coverage_status
                 FROM firechronicle_master
                 WHERE {where_clause}
                 GROUP BY block_id, block_ix, block_iy, year, month
+                HAVING SUM(modis_count) IS NOT NULL OR SUM(viirs_count) IS NOT NULL
                 ORDER BY year, month, block_id
             """
             rows = self.con.execute(sql, params).fetchall()
@@ -1034,7 +1179,7 @@ class DuckDBManager:
         ratio_count, log_ratio_count = 0, 0
 
         for r in rows:
-            b_id, b_ix, b_iy, yr, mo, dn, m_cnt, v_cnt, ratio, log_r, m_frp, v_frp = r
+            b_id, b_ix, b_iy, yr, mo, dn, m_cnt, v_cnt, ratio, log_r, m_frp, v_frp, cov_stat = r
 
             # Null-safe conversions with zero NaN or Infinity
             clean_m = float(m_cnt) if m_cnt is not None and not math.isnan(m_cnt) else None
@@ -1070,6 +1215,11 @@ class DuckDBManager:
                     log_ratio=clean_log_ratio,
                     modis_frp_sum=float(m_frp) if m_frp is not None and not math.isnan(m_frp) else None,
                     viirs_frp_sum=float(v_frp) if v_frp is not None and not math.isnan(v_frp) else None,
+                    coverage_status=(
+                        CoverageStatus(cov_stat)
+                        if cov_stat in CoverageStatus._value2member_map_
+                        else cov_stat
+                    ),
                 )
             )
 
@@ -1137,10 +1287,17 @@ class DuckDBManager:
     # 8. WEBHOOK SYNC HANDLERS
     # -------------------------------------------------------------------------
     def sync_predictions(self, records: List[PredictionSyncRecord]) -> int:
-        """Ingest predictions from ML teammate into local state."""
+        """Validate/acknowledge prediction records from ML teammate (demo acknowledgement only).
+
+        NOTE: Real durable storage and read-back verification are pending the delivery
+        of the validated Data Science model interface.
+        """
         if not records:
             return 0
-        logger.info("Synced %d prediction records from ML teammate.", len(records))
+        logger.info(
+            "Demo acknowledgement only: received %d prediction records (durable storage pending validated DS model interface).",
+            len(records),
+        )
         return len(records)
 
     def sync_metrics(self, payload: Dict[str, Any]) -> None:

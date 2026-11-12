@@ -57,11 +57,18 @@ def create_app() -> FastAPI:
         redoc_url="/redoc",
     )
 
-    # Configure CORS
-    cors_origins = settings.CORS_ORIGINS if isinstance(settings.CORS_ORIGINS, list) else [settings.CORS_ORIGINS]
+    # Configure CORS strictly using FRONTEND_URL environment variable (never allow "*")
+    frontend_origins = [
+        origin.strip()
+        for origin in settings.FRONTEND_URL.split(",")
+        if origin.strip() and origin.strip() != "*"
+    ]
+    if not frontend_origins:
+        frontend_origins = ["http://localhost:3000"]
+
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=cors_origins,
+        allow_origins=frontend_origins,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],

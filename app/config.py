@@ -2,10 +2,11 @@
 
 from functools import lru_cache
 import json
+import os
 from pathlib import Path
-from typing import List, Union
+from typing import List, Optional, Union
 
-from pydantic import field_validator
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BACKEND_ROOT = Path(__file__).resolve().parent.parent
@@ -20,30 +21,32 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    ENVIRONMENT: str = "development"
+    ENVIRONMENT: str = Field(default_factory=lambda: os.getenv("ENVIRONMENT", "development"))
     HOST: str = "0.0.0.0"
     PORT: int = 8000
     DEBUG: bool = False
 
-    # CORS settings
-    CORS_ORIGINS: Union[List[str], str] = [
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-        "https://firechronicle.vercel.app",
-        "*",
-    ]
+    # CORS settings: restricted to explicit FRONTEND_URL origin(s), never wildcard "*"
+    FRONTEND_URL: str = Field(default_factory=lambda: os.getenv("FRONTEND_URL", "http://localhost:3000"))
+    CORS_ORIGINS: Union[List[str], str] = Field(
+        default_factory=lambda: [
+            origin.strip()
+            for origin in os.getenv("FRONTEND_URL", "http://localhost:3000").split(",")
+            if origin.strip() and origin.strip() != "*"
+        ]
+    )
 
     # Paths
     DATA_DIR: Path = BACKEND_ROOT / "data"
     DUCKDB_PATH: str = ":memory:"
 
-    # ML Model remote connection settings
-    ML_MODEL_API_URL: Union[str, None] = None
-    ML_MODEL_API_KEY: Union[str, None] = "firechronicle_ml_secret_key_2026"
+    # ML Model remote connection settings (strictly loaded from environment, no hardcoded secrets)
+    ML_MODEL_API_URL: Optional[str] = Field(default_factory=lambda: os.getenv("ML_MODEL_API_URL"))
+    ML_MODEL_API_KEY: Optional[str] = Field(default_factory=lambda: os.getenv("ML_MODEL_API_KEY"))
     ML_MODEL_TIMEOUT_SECONDS: float = 5.0
 
-    # ML Model Webhook / Sync API Key
-    WEBHOOK_API_KEY: str = "firechronicle_webhook_sync_key_2026"
+    # ML Model Webhook / Sync API Key (strictly loaded from environment, no hardcoded secrets)
+    WEBHOOK_API_KEY: Optional[str] = Field(default_factory=lambda: os.getenv("WEBHOOK_API_KEY"))
 
     # Region Guardrail Constant
     ANALYSIS_REGION_ID: str = "BR-PA"
@@ -56,11 +59,24 @@ class Settings(BaseSettings):
             v = v.strip()
             if v.startswith("[") and v.endswith("]"):
                 try:
-                    return json.loads(v)
+                    parsed = json.loads(v)
+                    return [str(x).strip() for x in parsed if str(x).strip() and str(x).strip() != "*"]
                 except Exception:
                     pass
-            return [x.strip() for x in v.split(",") if x.strip()]
-        return v
+            return [x.strip() for x in v.split(",") if x.strip() and x.strip() != "*"]
+        return [str(x).strip() for x in v if str(x).strip() and str(x).strip() != "*"]
+
+    @field_validator("FRONTEND_URL", mode="before")
+    @classmethod
+    def sanitize_frontend_url(cls, v: Union[str, None]) -> str:
+        cleaned = (v or "http://localhost:3000").strip()
+        if cleaned == "*" or not cleaned:
+            raise ValueError("FRONTEND_URL cannot be wildcard '*' or empty.")
+        return cleaned
+
+    @property
+    def is_production(self) -> bool:
+        return self.ENVIRONMENT.strip().lower() in ("production", "prod")
 
     @field_validator("DATA_DIR", mode="before")
     @classmethod

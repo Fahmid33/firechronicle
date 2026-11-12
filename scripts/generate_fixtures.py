@@ -48,7 +48,44 @@ from app.grid import (
 DATA_DIR = ROOT_DIR / "data"
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 
-# Fixed seed for reproducible scientific data
+ALLOWED_SYNTHETIC_PREFIXES = ("synthetic_", "demo_")
+PROTECTED_PRODUCTION_FILENAMES = {
+    "firechronicle_master.parquet",
+    "overlap_training.parquet",
+    "estimated_viirs_block_month.parquet",
+    "backend_monthly.parquet",
+    "coverage_para.parquet",
+    "hotspots_para.parquet",
+    "para_boundary.geojson",
+    "para_blocks_50km.geojson",
+    "para_50km_grid_canonical.parquet",
+    "para_50km_grid_geometry.parquet",
+    "model_info.json",
+    "validation_metrics.json",
+    "manifest.json",
+}
+
+
+def _safe_synthetic_output_path(filename: str) -> Path:
+    """Enforce strict synthetic_/demo_ export prefix and block overwriting any production data."""
+    clean_name = Path(filename).name
+    if clean_name != filename or "/" in filename or "\\" in filename:
+        raise ValueError(f"Unsafe fixture filename '{filename}': must be a flat filename inside data/.")
+    if not clean_name.startswith(ALLOWED_SYNTHETIC_PREFIXES):
+        raise PermissionError(
+            f"Refusing to write '{clean_name}': synthetic fixture outputs MUST start with 'synthetic_' or 'demo_'."
+        )
+    if clean_name in PROTECTED_PRODUCTION_FILENAMES:
+        raise PermissionError(
+            f"Refusing to overwrite protected production/NASA/IBGE artifact '{clean_name}'."
+        )
+    target = (DATA_DIR / clean_name).resolve()
+    if target.parent != DATA_DIR.resolve():
+        raise PermissionError(f"Path traversal blocked for '{filename}'.")
+    return target
+
+
+# Fixed seed for reproducible synthetic demo data
 random.seed(42)
 
 # Grid of 25 reference blocks across Pará state
@@ -68,16 +105,8 @@ def get_sample_blocks():
 
 
 def clean_obsolete_files():
-    """Remove obsolete or duplicate parquet files from data/."""
-    obsolete = [
-        DATA_DIR / "backend_monthly.parquet",
-        DATA_DIR / "observed_snpp_block_month.parquet",
-        DATA_DIR / "overlap_calibration.parquet",
-    ]
-    for p in obsolete:
-        if p.exists():
-            p.unlink()
-            print(f"✓ Removed obsolete file: {p.name}")
+    """No-op safety hook: fixture generator never deletes real NASA, IBGE, or model metadata files."""
+    print("✓ Production data protection active: skipping deletion of existing data/ artifacts.")
 
 
 def generate_boundaries_and_blocks_geojson(blocks):
@@ -117,9 +146,10 @@ def generate_boundaries_and_blocks_geojson(blocks):
             }
         ],
     }
-    with open(DATA_DIR / "para_boundary.geojson", "w", encoding="utf-8") as f:
+    boundary_path = _safe_synthetic_output_path("synthetic_para_boundary.geojson")
+    with open(boundary_path, "w", encoding="utf-8") as f:
         json.dump(boundary_geojson, f, indent=2)
-    print("✓ Created para_boundary.geojson (Official IBGE Pará Boundary)")
+    print(f"✓ Created {boundary_path.name} (Synthetic Demo Boundary)")
 
     # 2. 50km blocks GeoJSON FeatureCollection for MapLibre
     features = []
@@ -145,9 +175,10 @@ def generate_boundaries_and_blocks_geojson(blocks):
         "crs": {"type": "name", "properties": {"name": "urn:ogc:def:crs:OGC:1.3:CRS84"}},
         "features": features,
     }
-    with open(DATA_DIR / "para_blocks_50km.geojson", "w", encoding="utf-8") as f:
+    blocks_path = _safe_synthetic_output_path("synthetic_para_blocks_50km.geojson")
+    with open(blocks_path, "w", encoding="utf-8") as f:
         json.dump(blocks_geojson, f, indent=2)
-    print(f"✓ Created para_blocks_50km.geojson ({len(features)} 50km block polygons)")
+    print(f"✓ Created {blocks_path.name} ({len(features)} 50km block polygons)")
 
 
 def generate_master_and_derivative_datasets(blocks):
@@ -187,7 +218,7 @@ def generate_master_and_derivative_datasets(blocks):
 
                         viirs_count = None  # Strictly NULL (BIGINT NULL)
                         viirs_frp = None    # Strictly NULL (DOUBLE NULL)
-                        coverage_status = "verified"
+                        coverage_status = "unknown"
                         proc_status = "completed"
                         m_version = "C6.1"
                         v_version = "NOT_IN_ORBIT"
@@ -210,7 +241,7 @@ def generate_master_and_derivative_datasets(blocks):
                             "estimated_viirs_count": est_viirs,
                             "value_type": "estimated",
                             "prediction_status": "ok_preliminary",
-                            "coverage_status": "verified",
+                            "coverage_status": "unknown",
                             "model_version": "v1.2.0-spatial-bayes",
                             "measurement_unit": "detections",
                             "calibration_scale_km": 50,
@@ -233,7 +264,7 @@ def generate_master_and_derivative_datasets(blocks):
                             viirs_count = int(round(raw_v))
                             viirs_frp = round(viirs_count * 20.0, 1)
 
-                        coverage_status = "verified"
+                        coverage_status = "unknown"
                         proc_status = "completed"
                         m_version = "C6.1"
                         v_version = "VNP14IMG_archive_v1"
@@ -262,7 +293,7 @@ def generate_master_and_derivative_datasets(blocks):
 
                         modis_count = None  # Strictly NULL (BIGINT NULL)
                         modis_frp = None    # Strictly NULL (DOUBLE NULL)
-                        coverage_status = "verified"
+                        coverage_status = "unknown"
                         proc_status = "completed"
                         m_version = "NOT_ACTIVE"
                         v_version = "VNP14IMGTDL_NRT" if is_nrt else "VNP14IMG_archive_v1"
@@ -304,11 +335,12 @@ def generate_master_and_derivative_datasets(blocks):
         ("modis_source_version", pa.string()),
         ("viirs_source_version", pa.string()),
     ])
+    master_path = _safe_synthetic_output_path("synthetic_firechronicle_master.parquet")
     t_master = pa.Table.from_pylist(master_records, schema=master_schema)
-    pq.write_table(t_master, DATA_DIR / "firechronicle_master.parquet")
-    print(f"✓ Created firechronicle_master.parquet (15 cols, {len(master_records)} rows)")
+    pq.write_table(t_master, master_path)
+    print(f"✓ Created {master_path.name} (15 cols, {len(master_records)} rows)")
 
-    # 2. Write overlap_training.parquet (10 columns strictly for Data Scientist)
+    # 2. Write synthetic_overlap_training.parquet (10 columns strictly for Data Scientist)
     overlap_schema = pa.schema([
         ("region_id", pa.string()),
         ("block_id", pa.string()),
@@ -321,11 +353,12 @@ def generate_master_and_derivative_datasets(blocks):
         ("viirs_count", pa.int64()),       # BIGINT NULL
         ("coverage_status", pa.string()),
     ])
+    overlap_path = _safe_synthetic_output_path("synthetic_overlap_training.parquet")
     t_overlap = pa.Table.from_pylist(overlap_records, schema=overlap_schema)
-    pq.write_table(t_overlap, DATA_DIR / "overlap_training.parquet")
-    print(f"✓ Created overlap_training.parquet (10 cols, {len(overlap_records)} rows)")
+    pq.write_table(t_overlap, overlap_path)
+    print(f"✓ Created {overlap_path.name} (10 cols, {len(overlap_records)} rows)")
 
-    # 3. Write estimated_viirs_block_month.parquet (Precomputed historical predictions)
+    # 3. Write synthetic_estimated_viirs_block_month.parquet (Precomputed historical predictions)
     est_schema = pa.schema([
         ("region_id", pa.string()),
         ("block_id", pa.string()),
@@ -342,9 +375,10 @@ def generate_master_and_derivative_datasets(blocks):
         ("measurement_unit", pa.string()),       # 'detections'
         ("calibration_scale_km", pa.int32()),     # 50
     ])
+    est_path = _safe_synthetic_output_path("synthetic_estimated_viirs_block_month.parquet")
     t_est = pa.Table.from_pylist(estimated_records, schema=est_schema)
-    pq.write_table(t_est, DATA_DIR / "estimated_viirs_block_month.parquet")
-    print(f"✓ Created estimated_viirs_block_month.parquet ({len(estimated_records)} precomputed ML estimates)")
+    pq.write_table(t_est, est_path)
+    print(f"✓ Created {est_path.name} ({len(estimated_records)} precomputed ML estimates)")
 
 
 def generate_coverage_para_12cols(num_blocks=25):
@@ -388,7 +422,7 @@ def generate_coverage_para_12cols(num_blocks=25):
                 "viirs_available": v_avail,
                 "overlap_available": ov_avail,
                 "value_type": vtype,
-                "coverage_status": "verified",
+                "coverage_status": "unknown",
                 "total_blocks_observed": num_blocks,
                 "satellite_primary": sat,
                 "notes": notes,
@@ -408,9 +442,10 @@ def generate_coverage_para_12cols(num_blocks=25):
         ("satellite_primary", pa.string()),
         ("notes", pa.string()),
     ])
+    cov_path = _safe_synthetic_output_path("synthetic_coverage_para.parquet")
     t_cov = pa.Table.from_pylist(records, schema=cov_schema)
-    pq.write_table(t_cov, DATA_DIR / "coverage_para.parquet")
-    print(f"✓ Created coverage_para.parquet (12 cols, {len(records)} periods)")
+    pq.write_table(t_cov, cov_path)
+    print(f"✓ Created {cov_path.name} (12 cols, {len(records)} periods)")
 
 
 def generate_hotspots_para_dataset(num_points=1200):
@@ -457,9 +492,10 @@ def generate_hotspots_para_dataset(num_points=1200):
             "value_type": vtype,
         })
 
+    hs_path = _safe_synthetic_output_path("synthetic_hotspots_para.parquet")
     t = pa.Table.from_pylist(records)
-    pq.write_table(t, DATA_DIR / "hotspots_para.parquet")
-    print(f"✓ Created hotspots_para.parquet ({len(records)} points)")
+    pq.write_table(t, hs_path)
+    print(f"✓ Created {hs_path.name} ({len(records)} points)")
 
 
 def generate_metadata_contracts():
@@ -495,9 +531,10 @@ def generate_metadata_contracts():
             "Provisional NRT data (2026+) uses rapid processing without post-orbit calibration.",
         ],
     }
-    with open(DATA_DIR / "model_info.json", "w", encoding="utf-8") as f:
+    model_info_path = _safe_synthetic_output_path("demo_model_info.json")
+    with open(model_info_path, "w", encoding="utf-8") as f:
         json.dump(model_info, f, indent=2)
-    print("✓ Created model_info.json")
+    print(f"✓ Created {model_info_path.name}")
 
     validation_metrics = {
         "model_version": "v1.2.0-spatial-bayes",
@@ -533,9 +570,10 @@ def generate_metadata_contracts():
             "temporal splits across the 2012-2020 overlap archive in Pará."
         ),
     }
-    with open(DATA_DIR / "validation_metrics.json", "w", encoding="utf-8") as f:
+    metrics_path = _safe_synthetic_output_path("demo_validation_metrics.json")
+    with open(metrics_path, "w", encoding="utf-8") as f:
         json.dump(validation_metrics, f, indent=2)
-    print("✓ Created validation_metrics.json")
+    print(f"✓ Created {metrics_path.name}")
 
 
 def main():

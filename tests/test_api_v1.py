@@ -483,19 +483,179 @@ def test_ml_bridge_sync_webhook_auth_failure():
     assert res.status_code == 401
 
 
-def test_ml_bridge_sync_webhook_auth_success():
-    """Webhook requests with valid API key succeed."""
-    payload = {
-        "batch_id": "batch-002",
-        "model_version": "v1.2",
-        "records": [{"block_id": "-101_-8", "year": 2005, "month": 8, "estimated_viirs_count": 55.4}],
-    }
-    valid_key = "firechronicle_webhook_sync_key_2026"
+def test_ml_bridge_sync_webhook_auth_success(monkeypatch):
+    """Webhook requests with valid environment-configured API key return demo_acknowledgement_only."""
+    from app.config import get_settings
 
-    res = client.post(
-        "/ml-bridge/sync-predictions",
-        json=payload,
-        headers={"X-API-Key": valid_key},
-    )
+    test_key = "pytest-ephemeral-webhook-token"
+    monkeypatch.setenv("WEBHOOK_API_KEY", test_key)
+    get_settings.cache_clear()
+    try:
+        payload = {
+            "batch_id": "batch-002",
+            "model_version": "v1.2",
+            "records": [{"block_id": "-101_-8", "year": 2005, "month": 8, "estimated_viirs_count": 55.4}],
+        }
+        res = client.post(
+            "/ml-bridge/sync-predictions",
+            json=payload,
+            headers={"X-API-Key": test_key},
+        )
+        assert res.status_code == 200
+        body = res.json()
+        assert body["status"] == "demo_acknowledgement_only"
+        assert "pending" in body["message"].lower()
+    finally:
+        monkeypatch.delenv("WEBHOOK_API_KEY", raising=False)
+        get_settings.cache_clear()
+
+
+# =============================================================================
+# 8. PRODUCTION HARDENING & MULTI-YEAR VERIFICATION TESTS
+# =============================================================================
+
+def test_security_settings_no_hardcoded_secrets_and_cors(monkeypatch):
+    """Ensure API keys default to None (no hardcoded secrets) and CORS forbids wildcard '*'."""
+    from fastapi.middleware.cors import CORSMiddleware
+    from app.config import Settings
+
+    monkeypatch.delenv("ML_MODEL_API_KEY", raising=False)
+    monkeypatch.delenv("WEBHOOK_API_KEY", raising=False)
+    monkeypatch.delenv("FRONTEND_URL", raising=False)
+    s = Settings(_env_file=None)
+    assert s.ML_MODEL_API_KEY is None
+    assert s.WEBHOOK_API_KEY is None
+    assert s.FRONTEND_URL == "http://localhost:3000"
+    assert "*" not in s.CORS_ORIGINS
+
+    cors_mw = [m for m in app.user_middleware if m.cls is CORSMiddleware]
+    assert len(cors_mw) == 1
+    allow_origins = cors_mw[0].kwargs.get("allow_origins", [])
+    assert "*" not in allow_origins
+    assert len(allow_origins) >= 1
+
+
+def test_multi_year_loading_and_2012_bounds_null_integrity():
+    """Verify DuckDB glob multi-year load, canonical LEFT JOIN, 2012 totals, and strict NULL preservation."""
+    from app.db import get_db
+
+    db = get_db()
+    years_present = [
+        r[0]
+        for r in db.con.execute("SELECT DISTINCT year FROM firechronicle_master ORDER BY year").fetchall()
+    ]
+    assert 2012 in years_present
+    assert 2019 in years_present
+
+    # Zero duplicate keys across entire multi-year panel
+    total_rows, unique_keys = db.con.execute(
+        "SELECT COUNT(*), COUNT(DISTINCT (region_id, block_id, year, month, daynight)) FROM firechronicle_master"
+    ).fetchone()
+    assert total_rows == unique_keys
+
+    # Strict 2012 dense-panel canonical join integrity & NULL counts (must match verify.py)
+    row_2012 = db.con.execute("""
+        SELECT
+            COUNT(*),
+            COUNT(DISTINCT block_id),
+            SUM(modis_count),
+            SUM(viirs_count),
+            COUNT(*) FILTER (WHERE modis_count IS NULL),
+            COUNT(*) FILTER (WHERE viirs_count IS NULL)
+        FROM firechronicle_master
+        WHERE year = 2012
+    """).fetchone()
+    assert row_2012 == (13632, 568, 41074, 243498, 11024, 9114)
+
+    # API-level 2012 totals check on summary & calibration endpoints
+    sum_2012 = client.get("/api/v1/summary?region_id=BR-PA&start_year=2012&end_year=2012&daynight=ALL")
+    assert sum_2012.status_code == 200
+    viirs_sum_api = sum(pt["count"] for pt in sum_2012.json()["items"] if pt["count"] is not None)
+    assert viirs_sum_api == 243498.0
+
+    cal_2012 = client.get("/api/v1/sensor-lab/calibration?region_id=BR-PA&start_year=2012&end_year=2012&daynight=ALL")
+    assert cal_2012.status_code == 200
+    cal_items = cal_2012.json()["items"]
+    assert sum(p["modis_count"] for p in cal_items if p["modis_count"] is not None) == 41074.0
+    assert sum(p["viirs_count"] for p in cal_items if p["viirs_count"] is not None) == 243498.0
+
+    # Spatial 2012-01 returns all 568 canonical blocks preserving None (not 0) for missing detections
+    sp_jan = client.get("/api/v1/spatial?region_id=BR-PA&year=2012&month=1&resolution=50km&daynight=ALL")
+    assert sp_jan.status_code == 200
+    sp_features = sp_jan.json()["features"]
+    assert len(sp_features) == 568
+    null_blocks = [f for f in sp_features if f["properties"]["count"] is None]
+    non_null_sum = sum(f["properties"]["count"] for f in sp_features if f["properties"]["count"] is not None)
+    assert len(null_blocks) > 0
+    assert non_null_sum == 445.0
+
+
+def test_2012_partial_coverage_metadata_passthrough():
+    """Verify coverage_status flows unaltered ('unknown', never 'verified') with Jan 2012 partial availability."""
+    res = client.get("/api/v1/summary?region_id=BR-PA&start_year=2012&end_year=2012&daynight=ALL")
     assert res.status_code == 200
-    assert res.json()["status"] == "success"
+    items = res.json()["items"]
+    assert len(items) == 12
+    for pt in items:
+        assert pt["coverage_status"] == "unknown"
+        assert pt["coverage_status"] != "verified"
+
+    jan_pt = [pt for pt in items if pt["period"] == "2012-01"][0]
+    assert jan_pt["coverage_notes"] is not None
+    assert "2012-01-20" in jan_pt["coverage_notes"]
+
+    sp_jan = client.get("/api/v1/spatial?region_id=BR-PA&year=2012&month=1&resolution=50km&daynight=ALL")
+    assert sp_jan.status_code == 200
+    for feat in sp_jan.json()["features"]:
+        assert feat["properties"]["coverage_status"] == "unknown"
+        assert feat["properties"]["coverage_notes"] is not None
+        assert "2012-01-20" in feat["properties"]["coverage_notes"]
+
+
+def test_strict_timeline_separation_pre_and_post_2012():
+    """Verify strict timeline era boundary between pre-2012 estimates and 2012+ observed VIIRS."""
+    res = client.get("/api/v1/harmonized?region_id=BR-PA&start_year=2003&end_year=2020&daynight=ALL")
+    assert res.status_code == 200
+    items = res.json()["items"]
+    pre_2012 = [pt for pt in items if pt["year"] < 2012]
+    post_2012 = [pt for pt in items if pt["year"] >= 2012]
+    assert len(pre_2012) > 0 and len(post_2012) > 0
+    for pt in pre_2012:
+        assert pt["value_type"] == ValueType.ESTIMATED.value
+        assert pt["is_harmonized_estimate"] is True
+    for pt in post_2012:
+        assert pt["value_type"] in (ValueType.OBSERVED.value, ValueType.PROVISIONAL_NRT.value)
+        assert pt["is_harmonized_estimate"] is False
+
+
+def test_production_predict_fallback_guard(monkeypatch):
+    """Ensure local 3.82 heuristic raises NotImplementedError when running in production mode."""
+    from app.config import get_settings
+    from scripts.predict import predict_single_block
+
+    monkeypatch.setenv("ENVIRONMENT", "production")
+    get_settings.cache_clear()
+    try:
+        with pytest.raises(NotImplementedError, match="Real ML model not yet connected"):
+            predict_single_block("BR-PA", 2005, 8, "-100_-10", modis_count=25.0)
+    finally:
+        monkeypatch.delenv("ENVIRONMENT", raising=False)
+        get_settings.cache_clear()
+
+
+def test_generate_fixtures_safety_guard():
+    """Verify generate_fixtures cannot overwrite real NASA/IBGE/ML metadata artifacts."""
+    from scripts.generate_fixtures import _safe_synthetic_output_path
+
+    for forbidden in (
+        "firechronicle_master.parquet",
+        "firechronicle_master_2012.parquet",
+        "para_boundary.geojson",
+        "model_info.json",
+        "validation_metrics.json",
+    ):
+        with pytest.raises(PermissionError):
+            _safe_synthetic_output_path(forbidden)
+
+    ok_path = _safe_synthetic_output_path("synthetic_test_export.parquet")
+    assert ok_path.name == "synthetic_test_export.parquet"

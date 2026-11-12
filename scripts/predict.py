@@ -5,7 +5,10 @@ Aqua MODIS and VIIRS S-NPP overlap dataset.
 """
 
 import math
+import os
 from typing import Dict, List, Optional, Tuple
+
+from app.config import get_settings
 
 
 def predict_single_block(
@@ -45,10 +48,15 @@ def predict_single_block(
     if m_count < 0:
         return None, "out_of_training_range", f"Invalid negative modis_count: {m_count}"
 
+    # 4. Production safety guard: block heuristic fallback outside development/test
+    env = (os.getenv("ENVIRONMENT") or get_settings().ENVIRONMENT or "development").strip().lower()
+    if env not in ("development", "dev", "local", "test", "testing"):
+        raise NotImplementedError("Real ML model not yet connected")
+
     if m_count == 0.0:
         return 0.0, "ok_preliminary", None
 
-    # Overlap calibration model coefficients:
+    # Development-only heuristic overlap calibration model coefficients:
     # VIIRS 375m detection density is roughly 3.82x Aqua MODIS 1km in Pará Amazon forest/ecotone.
     # Seasonal adjustment accounts for higher smoke attenuation in peak dry season (Aug-Oct).
     seasonal_phase = (month - 9) * math.pi / 6.0
