@@ -127,7 +127,7 @@ class MLModelClient:
         return self._local_fallback_predict(request)
 
     def _normalize_blocks(self, request: PredictRequest) -> List[PredictBlockInput]:
-        """Normalize request to a list of block inputs."""
+        """Normalize request to a list of block inputs; reject missing block identifiers."""
         if request.blocks and len(request.blocks) > 0:
             return request.blocks
         if request.block_id:
@@ -139,14 +139,9 @@ class MLModelClient:
                     daynight=request.daynight or "ALL",
                 )
             ]
-        return [
-            PredictBlockInput(
-                block_id="-110_-21",
-                modis_count=request.modis_count,
-                modis_frp_sum=request.modis_frp_sum,
-                daynight=request.daynight or "ALL",
-            )
-        ]
+        raise ValueError(
+            "Missing required block identifier: provide 'block_id' or a non-empty 'blocks' list."
+        )
 
     def _lookup_precomputed_estimates(self, request: PredictRequest) -> Optional[PredictResponse]:
         """Instant retrieval of precomputed historical predictions from DuckDB / Parquet cache."""
@@ -323,50 +318,71 @@ class MLModelClient:
             return None
 
     def _local_fallback_predict(self, request: PredictRequest) -> PredictResponse:
-        """Run local calibration regression (scripts/predict.py)."""
+        """Run local calibration regression in dev, or return safe model_not_ready NULL payload in production."""
         blocks = self._normalize_blocks(request)
         results: List[SingleBlockPrediction] = []
+        resp_status = "ok"
+        resp_error: Optional[str] = None
 
         for b in blocks:
             modis_c = b.modis_count
             frp_s = b.modis_frp_sum
             b_dn = b.daynight or request.daynight or "ALL"
-
-            est_viirs, status_str, err_msg = predict_single_block(
-                region_id=request.region_id,
-                year=request.year,
-                month=request.month,
-                block_id=b.block_id,
-                modis_count=modis_c,
-                modis_frp_sum=frp_s,
-                daynight=b_dn,
-                features=b.features,
-            )
-
-            status_enum = PredictionStatus(status_str) if status_str else None
             b_ix, b_iy = self._parse_block_indices(b.block_id)
 
-            results.append(
-                SingleBlockPrediction(
-                    block_id=b.block_id,
-                    block_ix=b_ix,
-                    block_iy=b_iy,
+            try:
+                est_viirs, status_str, err_msg = predict_single_block(
+                    region_id=request.region_id,
                     year=request.year,
                     month=request.month,
+                    block_id=b.block_id,
+                    modis_count=modis_c,
+                    modis_frp_sum=frp_s,
                     daynight=b_dn,
-                    estimated_viirs_count=est_viirs,
-                    estimated_count=est_viirs,
-                    prediction_status=status_enum,
-                    model_version="local-empirical-v1.2",
-                    error_message=err_msg,
+                    features=b.features,
                 )
-            )
+                status_enum = PredictionStatus(status_str) if status_str else None
+                results.append(
+                    SingleBlockPrediction(
+                        block_id=b.block_id,
+                        block_ix=b_ix,
+                        block_iy=b_iy,
+                        year=request.year,
+                        month=request.month,
+                        daynight=b_dn,
+                        estimated_viirs_count=est_viirs,
+                        estimated_count=est_viirs,
+                        prediction_status=status_enum,
+                        model_version="local-empirical-v1.2-dev-only",
+                        error_message=err_msg,
+                    )
+                )
+            except NotImplementedError:
+                resp_status = "model_not_ready"
+                resp_error = "Validated model interface not connected"
+                results.append(
+                    SingleBlockPrediction(
+                        block_id=b.block_id,
+                        block_ix=b_ix,
+                        block_iy=b_iy,
+                        year=request.year,
+                        month=request.month,
+                        daynight=b_dn,
+                        estimated_viirs_count=None,
+                        estimated_count=None,
+                        prediction_status=PredictionStatus.NOT_PROCESSED,
+                        model_version=None,
+                        error_message=resp_error,
+                    )
+                )
 
         return PredictResponse(
             region_id=request.region_id,
             year=request.year,
             month=request.month,
             daynight=request.daynight or "ALL",
+            status=resp_status,
+            error=resp_error,
             predictions=results,
             total_predictions=len(results),
         )
@@ -376,26 +392,34 @@ class MLModelClient:
         remote_ok = False
         if self.settings.ML_MODEL_API_URL:
             try:
+                headers = {}
+                if self.settings.ML_MODEL_API_KEY:
+                    headers["X-API-Key"] = self.settings.ML_MODEL_API_KEY
                 async with httpx.AsyncClient(timeout=2.0) as client:
                     resp = await client.get(
                         f"{self.settings.ML_MODEL_API_URL.rstrip('/')}/health",
-                        headers={"X-API-Key": self.settings.ML_MODEL_API_KEY or ""},
+                        headers=headers,
                     )
                     remote_ok = resp.status_code == 200
             except Exception:
                 remote_ok = False
 
         master_exists = (
-            (self.settings.DATA_DIR / "firechronicle_master_2019.parquet").exists()
+            bool(list(self.settings.DATA_DIR.glob("**/firechronicle_master_*.parquet")))
             or (self.settings.DATA_DIR / "firechronicle_master.parquet").exists()
+            or bool(self.settings.REAL_DATA_DIR and list(self.settings.REAL_DATA_DIR.glob("**/firechronicle_master_*.parquet")))
         )
         precomputed_exists = (self.settings.DATA_DIR / "estimated_viirs_block_month.parquet").exists()
 
         return {
             "remote_ml_service_available": remote_ok,
             "remote_ml_url": self.settings.ML_MODEL_API_URL,
-            "local_fallback_available": True,
+            "local_fallback_available": not self.settings.is_production,
             "master_dataset_available": master_exists,
             "precomputed_estimates_available": precomputed_exists,
-            "active_mode": "remote_http" if remote_ok else "precomputed_and_local_fallback",
+            "active_mode": (
+                "remote_http"
+                if remote_ok
+                else ("model_not_ready" if self.settings.is_production else "precomputed_and_dev_fallback")
+            ),
         }

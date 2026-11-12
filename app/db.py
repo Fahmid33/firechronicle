@@ -48,6 +48,9 @@ from app.schemas import (
 
 logger = logging.getLogger("firechronicle.db")
 
+EXPECTED_2012_2020_MODIS_TOTAL = 344071
+EXPECTED_2012_2020_VIIRS_TOTAL = 2196531
+
 
 class DuckDBManager:
     """Manages DuckDB session, parquet views, and SQL query execution."""
@@ -58,39 +61,113 @@ class DuckDBManager:
         self._init_views()
 
     def _resolve_glob_expr(self, glob_pattern: str, fallback_file: Optional[str] = None) -> Optional[str]:
-        """Resolve a DuckDB glob expression across multi-year parquet files without preferring a single year."""
+        """Resolve recursive nested (e.g. real/YYYY/*.parquet) or flat DuckDB glob expressions."""
         data_dir = self.settings.DATA_DIR
-        matched = sorted(data_dir.glob(glob_pattern))
-        if matched:
-            return f"{data_dir.as_posix()}/{glob_pattern}"
+        candidates: List[Tuple[Path, str]] = []
+
+        if self.settings.REAL_DATA_DIR and self.settings.REAL_DATA_DIR.exists():
+            candidates.append((self.settings.REAL_DATA_DIR, f"**/{glob_pattern}"))
+
+        real_subdir = data_dir / "real"
+        if real_subdir.exists():
+            candidates.append((real_subdir, f"**/{glob_pattern}"))
+
+        candidates.append((data_dir, f"**/real/**/{glob_pattern}"))
+        candidates.append((data_dir, glob_pattern))
+
+        for base_dir, pattern in candidates:
+            matched = [
+                p for p in sorted(base_dir.glob(pattern))
+                if not p.name.startswith(("synthetic_", "demo_"))
+            ]
+            if matched:
+                return f"{base_dir.as_posix()}/{pattern}"
+
         if fallback_file:
             fb_path = data_dir / fallback_file
             if fb_path.exists():
                 return fb_path.as_posix()
         return None
 
+    def _assert_no_duplicate_keys(self, view_name: str) -> None:
+        """Fail explicitly if duplicate (block_id, year, month, daynight) keys exist."""
+        dups = self.con.execute(f"""
+            SELECT block_id, year, month, daynight, COUNT(*) AS cnt
+            FROM {view_name}
+            GROUP BY block_id, year, month, daynight
+            HAVING COUNT(*) > 1
+            LIMIT 5
+        """).fetchall()
+        if dups:
+            raise ValueError(
+                f"Duplicate keys detected in '{view_name}' for (block_id, year, month, daynight): {dups}"
+            )
+
+    def validate_multiyear_totals(self, require_full_nine_years: bool = False) -> Dict[str, Any]:
+        """Validate loaded multi-year MODIS/VIIRS totals against 2012-2020 ground-truth bounds."""
+        years_rows = self.con.execute(
+            "SELECT DISTINCT year FROM firechronicle_master ORDER BY year"
+        ).fetchall()
+        years_loaded = [int(r[0]) for r in years_rows]
+        row = self.con.execute(
+            "SELECT SUM(modis_count), SUM(viirs_count) FROM firechronicle_master WHERE year BETWEEN 2012 AND 2020"
+        ).fetchone()
+        modis_total = int(row[0]) if row and row[0] is not None else 0
+        viirs_total = int(row[1]) if row and row[1] is not None else 0
+
+        full_9yr = set(range(2012, 2021)).issubset(set(years_loaded))
+        if require_full_nine_years and not full_9yr:
+            raise ValueError(
+                f"Expected complete 2012-2020 9-year dataset, but only years {years_loaded} are present."
+            )
+
+        totals_match = (
+            modis_total == EXPECTED_2012_2020_MODIS_TOTAL
+            and viirs_total == EXPECTED_2012_2020_VIIRS_TOTAL
+        )
+        if (full_9yr or require_full_nine_years) and not totals_match:
+            raise ValueError(
+                f"2012-2020 multi-year total mismatch: got MODIS={modis_total}, VIIRS={viirs_total}; "
+                f"expected MODIS={EXPECTED_2012_2020_MODIS_TOTAL}, VIIRS={EXPECTED_2012_2020_VIIRS_TOTAL}."
+            )
+
+        return {
+            "years_loaded": years_loaded,
+            "year_count": len(years_loaded),
+            "modis_total": modis_total,
+            "viirs_total": viirs_total,
+            "full_nine_year_dataset_present": full_9yr,
+            "totals_match_expected_9yr": totals_match,
+        }
+
     def _load_audit_period_notes(self) -> Dict[str, str]:
-        """Extract Data Engineer source date/completeness limitations from audit_*.json files."""
+        """Extract Data Engineer source date/completeness limitations from audit_*.json & completeness CSVs."""
         notes_by_period: Dict[str, str] = {}
-        data_dir = self.settings.DATA_DIR
-        for audit_file in sorted(data_dir.glob("audit_*.json")):
-            try:
-                with open(audit_file, "r", encoding="utf-8") as f:
-                    audit = json.load(f)
-                yr = audit.get("year")
-                viirs_src = (audit.get("source") or {}).get("viirs_snpp") or {}
-                d_min = viirs_src.get("source_date_min")
-                if yr == 2012 and d_min and d_min > "2012-01-01":
-                    notes_by_period["2012-01"] = (
-                        f"Partial January 2012 availability: VIIRS S-NPP archive begins {d_min} "
-                        f"({audit_file.name})."
-                    )
-            except Exception as e:
-                logger.warning("Could not parse audit metadata %s: %s", audit_file, e)
+        search_roots = [self.settings.DATA_DIR]
+        if self.settings.REAL_DATA_DIR and self.settings.REAL_DATA_DIR.exists():
+            search_roots.append(self.settings.REAL_DATA_DIR)
+
+        for root in search_roots:
+            for audit_file in sorted(root.rglob("audit_*.json")):
+                if audit_file.name.startswith(("synthetic_", "demo_")):
+                    continue
+                try:
+                    with open(audit_file, "r", encoding="utf-8") as f:
+                        audit = json.load(f)
+                    yr = audit.get("year")
+                    viirs_src = (audit.get("source") or {}).get("viirs_snpp") or {}
+                    d_min = viirs_src.get("source_date_min")
+                    if yr == 2012 and d_min and d_min > "2012-01-01":
+                        notes_by_period["2012-01"] = (
+                            f"Partial January 2012 availability: VIIRS S-NPP archive begins {d_min} "
+                            f"({audit_file.name}); independent archive completeness unverified."
+                        )
+                except Exception as e:
+                    logger.warning("Could not parse audit metadata %s: %s", audit_file, e)
         return notes_by_period
 
     def _init_views(self) -> None:
-        """Register DuckDB views using multi-year glob patterns and canonical dense-grid joins."""
+        """Register DuckDB views using nested multi-year glob patterns and canonical dense-grid joins."""
         data_dir = self.settings.DATA_DIR
 
         # 0. Canonical 50km grid and geometry (required for sparse-to-dense relational join)
@@ -108,13 +185,14 @@ class DuckDBManager:
 
         has_canonical = (data_dir / "para_50km_grid_canonical.parquet").exists()
 
-        # 1. Multi-year firechronicle_master via DuckDB glob + canonical grid LEFT JOIN sparse master
+        # 1. Multi-year firechronicle_master via DuckDB glob + explicit duplicate check + canonical LEFT JOIN
         master_expr = self._resolve_glob_expr("firechronicle_master_*.parquet", "firechronicle_master.parquet")
         if master_expr:
             self.con.execute(
                 f"CREATE OR REPLACE VIEW firechronicle_master_sparse AS SELECT * FROM '{master_expr}'"
             )
             logger.info("Registered DuckDB sparse master view -> %s", master_expr)
+            self._assert_no_duplicate_keys("firechronicle_master_sparse")
 
             if has_canonical:
                 self.con.execute("""
@@ -151,35 +229,14 @@ class DuckDBManager:
                         s.modis_source_version,
                         s.viirs_source_version
                     FROM full_dense_panel f
-                    LEFT JOIN (
-                        SELECT
-                            region_id,
-                            block_id,
-                            block_ix,
-                            block_iy,
-                            year,
-                            month,
-                            daynight,
-                            modis_count,
-                            viirs_count,
-                            modis_frp_sum,
-                            viirs_frp_sum,
-                            coverage_status,
-                            processing_status,
-                            modis_source_version,
-                            viirs_source_version
-                        FROM firechronicle_master_sparse
-                        QUALIFY ROW_NUMBER() OVER (
-                            PARTITION BY region_id, block_id, year, month, daynight
-                            ORDER BY modis_source_version NULLS LAST, viirs_source_version NULLS LAST
-                        ) = 1
-                    ) s
+                    LEFT JOIN firechronicle_master_sparse s
                       ON f.region_id = s.region_id
                      AND f.block_id = s.block_id
                      AND f.year = s.year
                      AND f.month = s.month
                      AND f.daynight = s.daynight
                 """)
+                self._assert_no_duplicate_keys("firechronicle_master")
                 logger.info(
                     "Registered canonical dense relational view 'firechronicle_master' (canonical grid LEFT JOIN master sparse)."
                 )

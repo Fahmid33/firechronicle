@@ -138,6 +138,8 @@ def generate_boundaries_and_blocks_geojson(blocks):
                     "country_code": "BRA",
                     "ibge_code": "15",
                     "area_km2": 1247689.5,
+                    "is_synthetic_demo": True,
+                    "fictional_demo_only": True,
                 },
                 "geometry": {
                     "type": "Polygon",
@@ -171,7 +173,9 @@ def generate_boundaries_and_blocks_geojson(blocks):
 
     blocks_geojson = {
         "type": "FeatureCollection",
-        "name": "para_blocks_50km",
+        "name": "synthetic_para_blocks_50km",
+        "is_synthetic_demo": True,
+        "fictional_demo_only": True,
         "crs": {"type": "name", "properties": {"name": "urn:ogc:def:crs:OGC:1.3:CRS84"}},
         "features": features,
     }
@@ -242,7 +246,7 @@ def generate_master_and_derivative_datasets(blocks):
                             "value_type": "estimated",
                             "prediction_status": "ok_preliminary",
                             "coverage_status": "unknown",
-                            "model_version": "v1.2.0-spatial-bayes",
+                            "model_version": "v1.2.0-spatial-bayes-synthetic-demo",
                             "measurement_unit": "detections",
                             "calibration_scale_km": 50,
                         })
@@ -425,7 +429,7 @@ def generate_coverage_para_12cols(num_blocks=25):
                 "coverage_status": "unknown",
                 "total_blocks_observed": num_blocks,
                 "satellite_primary": sat,
-                "notes": notes,
+                "notes": f"[SYNTHETIC DEMO FIXTURE - FICTIONAL TEST DATA] {notes}",
             })
 
     cov_schema = pa.schema([
@@ -501,13 +505,18 @@ def generate_hotspots_para_dataset(num_points=1200):
 def generate_metadata_contracts():
     """Generate model_info.json and validation_metrics.json."""
     model_info = {
-        "model_name": "FireChronicle Pará Harmonization Regressor",
-        "model_version": "v1.2.0-spatial-bayes",
-        "framework": "LightGBM + Hierarchical Spatial Calibration",
+        "model_name": "FireChronicle Pará Harmonization Regressor (Synthetic Demo)",
+        "model_version": "v1.2.0-spatial-bayes-synthetic-demo",
+        "scientific_status": "DEMO / SYNTHETIC / NOT SCIENTIFICALLY VALIDATED",
+        "is_synthetic_demo": True,
+        "fictional_demo_only": True,
+        "is_production_ready": False,
+        "disclaimer": "Fictional demonstration artifact generated strictly for local testing; isolated from real NASA validation data.",
+        "framework": "LightGBM + Hierarchical Spatial Calibration (Demo Fixture)",
         "target_resolution": "50 km x 50 km (EPSG:6933 equal-area block)",
         "training_era": "2012-2020 Aqua MODIS & VIIRS S-NPP overlap in Pará (BR-PA)",
         "extrapolation_era": "Mid-2002 to 2011 historical Aqua MODIS -> VIIRS S-NPP equivalent",
-        "precomputed_estimates_dataset": "data/estimated_viirs_block_month.parquet",
+        "precomputed_estimates_dataset": "data/synthetic_estimated_viirs_block_month.parquet",
         "input_features": [
             "modis_count",
             "modis_frp_sum",
@@ -537,7 +546,12 @@ def generate_metadata_contracts():
     print(f"✓ Created {model_info_path.name}")
 
     validation_metrics = {
-        "model_version": "v1.2.0-spatial-bayes",
+        "model_version": "v1.2.0-spatial-bayes-synthetic-demo",
+        "scientific_status": "DEMO / SYNTHETIC / NOT SCIENTIFICALLY VALIDATED",
+        "is_synthetic_demo": True,
+        "fictional_demo_only": True,
+        "is_production_validation": False,
+        "disclaimer": "Fictional demonstration metrics generated strictly for local testing; isolated from real validation artifacts.",
         "spatial_resolution": "50km EPSG:6933 block",
         "temporal_resolution": "Monthly",
         "held_out_period": "2012-2020 Cross-Validation",

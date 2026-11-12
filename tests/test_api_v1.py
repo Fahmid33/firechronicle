@@ -659,3 +659,163 @@ def test_generate_fixtures_safety_guard():
 
     ok_path = _safe_synthetic_output_path("synthetic_test_export.parquet")
     assert ok_path.name == "synthetic_test_export.parquet"
+
+
+def test_nested_9yr_glob_loading_and_expected_totals(tmp_path):
+    """Verify recursive nested real/YYYY/*.parquet glob loads 2012-2020 and enforces 344,071 / 2,196,531 totals."""
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+    from app.config import Settings
+    from app.db import DuckDBManager, EXPECTED_2012_2020_MODIS_TOTAL, EXPECTED_2012_2020_VIIRS_TOTAL
+
+    real_root = tmp_path / "real"
+    years = list(range(2012, 2021))
+    modis_per_yr = [38230] * 8 + [EXPECTED_2012_2020_MODIS_TOTAL - 38230 * 8]
+    viirs_per_yr = [244059] * 8 + [EXPECTED_2012_2020_VIIRS_TOTAL - 244059 * 8]
+
+    for yr, m_val, v_val in zip(years, modis_per_yr, viirs_per_yr):
+        yr_dir = real_root / str(yr)
+        yr_dir.mkdir(parents=True, exist_ok=True)
+        tbl = pa.table({
+            "region_id": ["BR-PA"],
+            "block_id": ["-100_-10"],
+            "block_ix": pa.array([-100], type=pa.int32()),
+            "block_iy": pa.array([-10], type=pa.int32()),
+            "year": pa.array([yr], type=pa.int32()),
+            "month": pa.array([8], type=pa.int32()),
+            "daynight": ["D"],
+            "modis_count": pa.array([m_val], type=pa.int64()),
+            "viirs_count": pa.array([v_val], type=pa.int64()),
+            "modis_frp_sum": pa.array([100.0], type=pa.float64()),
+            "viirs_frp_sum": pa.array([200.0], type=pa.float64()),
+            "coverage_status": ["unknown"],
+            "processing_status": ["preliminary"],
+            "modis_source_version": ["6.2"],
+            "viirs_source_version": ["2"],
+        })
+        pq.write_table(tbl, yr_dir / f"firechronicle_master_{yr}.parquet")
+
+    db = DuckDBManager(Settings(_env_file=None, DATA_DIR=tmp_path, REAL_DATA_DIR=real_root))
+    summary = db.validate_multiyear_totals(require_full_nine_years=True)
+    assert summary["year_count"] == 9
+    assert summary["modis_total"] == EXPECTED_2012_2020_MODIS_TOTAL
+    assert summary["viirs_total"] == EXPECTED_2012_2020_VIIRS_TOTAL
+    assert summary["totals_match_expected_9yr"] is True
+
+    # Verify mismatch raises ValueError explicitly
+    bad_tbl = pa.table({
+        "region_id": ["BR-PA"],
+        "block_id": ["-100_-10"],
+        "block_ix": pa.array([-100], type=pa.int32()),
+        "block_iy": pa.array([-10], type=pa.int32()),
+        "year": pa.array([2020], type=pa.int32()),
+        "month": pa.array([9], type=pa.int32()),
+        "daynight": ["D"],
+        "modis_count": pa.array([1], type=pa.int64()),
+        "viirs_count": pa.array([1], type=pa.int64()),
+        "modis_frp_sum": pa.array([1.0], type=pa.float64()),
+        "viirs_frp_sum": pa.array([1.0], type=pa.float64()),
+        "coverage_status": ["unknown"],
+        "processing_status": ["preliminary"],
+        "modis_source_version": ["6.2"],
+        "viirs_source_version": ["2"],
+    })
+    pq.write_table(bad_tbl, real_root / "2020" / "firechronicle_master_2020_extra.parquet")
+    db_bad = DuckDBManager(Settings(_env_file=None, DATA_DIR=tmp_path, REAL_DATA_DIR=real_root))
+    with pytest.raises(ValueError, match="multi-year total mismatch"):
+        db_bad.validate_multiyear_totals(require_full_nine_years=True)
+
+
+def test_explicit_duplicate_key_failure(tmp_path):
+    """Verify duplicate (block_id, year, month, daynight) keys raise ValueError instead of silent dedup."""
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+    from app.config import Settings
+    from app.db import DuckDBManager
+
+    dup_tbl = pa.table({
+        "region_id": ["BR-PA", "BR-PA"],
+        "block_id": ["-100_-10", "-100_-10"],
+        "block_ix": pa.array([-100, -100], type=pa.int32()),
+        "block_iy": pa.array([-10, -10], type=pa.int32()),
+        "year": pa.array([2012, 2012], type=pa.int32()),
+        "month": pa.array([8, 8], type=pa.int32()),
+        "daynight": ["D", "D"],
+        "modis_count": pa.array([10, 12], type=pa.int64()),
+        "viirs_count": pa.array([40, 44], type=pa.int64()),
+        "modis_frp_sum": pa.array([100.0, 120.0], type=pa.float64()),
+        "viirs_frp_sum": pa.array([200.0, 220.0], type=pa.float64()),
+        "coverage_status": ["unknown", "unknown"],
+        "processing_status": ["preliminary", "preliminary"],
+        "modis_source_version": ["6.2", "6.2"],
+        "viirs_source_version": ["2", "2"],
+    })
+    pq.write_table(dup_tbl, tmp_path / "firechronicle_master_2012.parquet")
+
+    with pytest.raises(ValueError, match="Duplicate keys detected"):
+        DuckDBManager(Settings(_env_file=None, DATA_DIR=tmp_path))
+
+
+def test_predict_requires_explicit_block_id_no_arbitrary_default():
+    """Verify POST /api/v1/predict rejects missing block_id/blocks rather than using an arbitrary default."""
+    payload = {
+        "region_id": "BR-PA",
+        "year": 2005,
+        "month": 8,
+        "modis_count": 25.0,
+    }
+    res = client.post("/api/v1/predict", json=payload)
+    assert res.status_code == 400
+    assert "block_id" in res.json()["detail"]
+
+
+def test_production_ml_client_graceful_fallback_no_500(monkeypatch):
+    """In production without validated ML interface, /api/v1/predict returns model_not_ready with NULLs (not 500)."""
+    from app.config import get_settings
+
+    monkeypatch.setenv("ENVIRONMENT", "production")
+    monkeypatch.delenv("ML_MODEL_API_URL", raising=False)
+    get_settings.cache_clear()
+    try:
+        payload = {
+            "region_id": "BR-PA",
+            "year": 2005,
+            "month": 8,
+            "block_id": "-100_-10",
+            "modis_count": 25.0,
+        }
+        res = client.post("/api/v1/predict", json=payload)
+        assert res.status_code == 200
+        body = res.json()
+        assert body["status"] == "model_not_ready"
+        assert body["error"] == "Validated model interface not connected"
+        pred = body["predictions"][0]
+        assert pred["estimated_viirs_count"] is None
+        assert pred["estimated_count"] is None
+        assert pred["prediction_status"] == PredictionStatus.NOT_PROCESSED.value
+    finally:
+        monkeypatch.delenv("ENVIRONMENT", raising=False)
+        get_settings.cache_clear()
+
+
+def test_synthetic_fixture_metadata_flags(tmp_path, monkeypatch):
+    """Verify generate_fixtures metadata explicitly flags fictional/demonstration-only status."""
+    import json
+    import scripts.generate_fixtures as gf
+
+    monkeypatch.setattr(gf, "DATA_DIR", tmp_path)
+    gf.generate_metadata_contracts()
+
+    with open(tmp_path / "demo_model_info.json", "r", encoding="utf-8") as f:
+        mi = json.load(f)
+    with open(tmp_path / "demo_validation_metrics.json", "r", encoding="utf-8") as f:
+        vm = json.load(f)
+
+    assert mi["is_synthetic_demo"] is True
+    assert mi["fictional_demo_only"] is True
+    assert mi["is_production_ready"] is False
+    assert mi["scientific_status"] == "DEMO / SYNTHETIC / NOT SCIENTIFICALLY VALIDATED"
+
+    assert vm["is_synthetic_demo"] is True
+    assert vm["fictional_demo_only"] is True
+    assert vm["is_production_validation"] is False

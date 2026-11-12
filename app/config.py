@@ -38,6 +38,7 @@ class Settings(BaseSettings):
 
     # Paths
     DATA_DIR: Path = BACKEND_ROOT / "data"
+    REAL_DATA_DIR: Optional[Path] = Field(default_factory=lambda: (Path(os.getenv("REAL_DATA_DIR")) if os.getenv("REAL_DATA_DIR") else None))
     DUCKDB_PATH: str = ":memory:"
 
     # ML Model remote connection settings (strictly loaded from environment, no hardcoded secrets)
@@ -81,6 +82,16 @@ class Settings(BaseSettings):
     @field_validator("DATA_DIR", mode="before")
     @classmethod
     def resolve_data_dir(cls, v: Union[str, Path]) -> Path:
+        p = Path(v)
+        if not p.is_absolute():
+            return (BACKEND_ROOT / p).resolve()
+        return p.resolve()
+
+    @field_validator("REAL_DATA_DIR", mode="before")
+    @classmethod
+    def resolve_real_data_dir(cls, v: Union[str, Path, None]) -> Optional[Path]:
+        if v is None or v == "":
+            return None
         p = Path(v)
         if not p.is_absolute():
             return (BACKEND_ROOT / p).resolve()

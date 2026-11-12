@@ -364,6 +364,8 @@ class PredictResponse(BaseModel):
     year: int
     month: int
     daynight: str = "ALL"
+    status: str = "ok"
+    error: Optional[str] = None
     is_synthetic_demo: bool = False
     synthetic_demo_notice: Optional[str] = None
     predictions: List[SingleBlockPrediction]
