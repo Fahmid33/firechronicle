@@ -62,6 +62,7 @@ id_ed25519*
 /modis/
 /viirs/
 *.csv
+!model/data/synthetic/*.csv
 *.parquet
 *.feather
 *.arrow
@@ -77,6 +78,15 @@ id_ed25519*
 *.rar
 *.sqlite*
 *.db
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.venv/
+venv/
+*.joblib
 
 # vercel
 .vercel

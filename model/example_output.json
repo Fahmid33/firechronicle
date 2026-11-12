@@ -1,0 +1,14 @@
+{
+  "region_id": "BR-PA",
+  "block_id": "120_-50",
+  "year": 2005,
+  "month": 9,
+  "daynight": "D",
+  "estimated_viirs_count": 144.0,
+  "value_type": "estimated",
+  "prediction_status": "ok_preliminary",
+  "coverage_status": "unknown",
+  "model_version": "ratio-baseline-v1.0-synthetic-demo",
+  "measurement_unit": "VIIRS_S-NPP-equivalent_detection_count",
+  "calibration_scale_km": 50
+}

@@ -1,0 +1,11 @@
+# FireChronicle - Data Science & Model Harmonization Dependencies
+# Target: Aqua MODIS to Suomi NPP VIIRS harmonization (Pará, Brazil)
+
+pandas
+numpy
+scipy
+statsmodels
+scikit-learn
+pyarrow
+joblib
+pytest
