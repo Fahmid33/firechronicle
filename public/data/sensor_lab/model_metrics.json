@@ -1,0 +1,84 @@
+{
+  "regionId": "BR-PA",
+  "modelVersion": "firechronicle-nb2-v1.0",
+  "generatedAtUtc": "2026-11-12T16:58:40.151549+00:00",
+  "architecture": {
+    "family": "Generalized Linear Model (GLM)",
+    "distribution": "Negative Binomial (NB2)",
+    "link": "log",
+    "dispersion_alpha": 0.3274,
+    "poisson_deviance": 32.32,
+    "reference_month": 1,
+    "baseline_ratio_k": 6.054,
+    "predictors": [
+      "log1p_modis = ln(1 + modis_count)",
+      "daynight_N = indicator for night observation",
+      "month_2 through month_12 = seasonal fixed effects (relative to January)"
+    ]
+  },
+  "training_provenance": {
+    "calibration_dataset": "2012-2020 Real Observed Overlap",
+    "sample_design": "Paired-positive cell-month-platform records (MODIS > 0 AND VIIRS > 0)",
+    "training_records_count": 23010,
+    "temporal_training_set_2012_2018": 17919,
+    "temporal_test_set_2019_2020": 5091,
+    "geographic_training_blocks_count": 376,
+    "geographic_heldout_blocks_count": 94,
+    "excluded_period": "January 2012 excluded due to uncommissioned S-NPP launch (Jan 1-19 unobserved)"
+  },
+  "official_evaluation_metrics": {
+    "temporal_holdout_2019_2020": {
+      "evaluation_period": "2019-01 to 2020-12 (24 holdout months)",
+      "sample_size": 5091,
+      "nb2_metrics": {
+        "native_cell_mae": 35.4374,
+        "native_cell_medae": 13.6789,
+        "native_cell_rmse": 84.5314,
+        "monthly_wape_pct": 16.79,
+        "monthly_r2": 0.9148,
+        "aggregate_bias_pct": -11.5
+      },
+      "baseline_ratio_metrics": {
+        "native_cell_mae": 44.9884,
+        "native_cell_medae": 16.4782,
+        "native_cell_rmse": 104.9943,
+        "monthly_wape_pct": 20.48,
+        "monthly_r2": 0.9009,
+        "aggregate_bias_pct": -12.91
+      },
+      "improvement_vs_baseline": {
+        "cell_mae_reduction": 9.551,
+        "monthly_wape_reduction_pct": 3.69,
+        "monthly_r2_gain": 0.0139
+      }
+    },
+    "geographic_holdout_94_blocks": {
+      "evaluation_blocks": "94 spatially held-out 50 km blocks",
+      "sample_size": 5147,
+      "nb2_metrics": {
+        "native_cell_mae": 35.7903,
+        "native_cell_medae": 15.1909,
+        "native_cell_rmse": 75.0096,
+        "spatial_wape_pct": 34.15,
+        "aggregate_bias_pct": 4.55
+      },
+      "baseline_ratio_metrics": {
+        "native_cell_mae": 53.8686,
+        "native_cell_medae": 19.9244,
+        "native_cell_rmse": 116.1109,
+        "spatial_wape_pct": 51.39,
+        "aggregate_bias_pct": -4.38
+      },
+      "improvement_vs_baseline": {
+        "cell_mae_reduction": 18.0783,
+        "spatial_wape_reduction_pct": 17.24
+      }
+    }
+  },
+  "scientific_limitations": [
+    "Historical estimates represent satellite detection counts equivalent to S-NPP VIIRS, NOT distinct physical wildfires or burned area.",
+    "Positive-detection paired training design means preliminary coverage-unadjusted estimates.",
+    "Unobserved historical cells (MODIS = NULL) are preserved as NULL and not imputed as zero.",
+    "Extrapolation beyond the training range (MODIS > 150) relies on smooth log-linear parametric assumptions."
+  ]
+}

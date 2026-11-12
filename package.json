@@ -7,7 +7,10 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test:map": "node --test tests/map-data.test.mjs"
+    "test": "node --test tests/map-data.test.mjs tests/real-static-data.test.mjs tests/data-client.test.mjs",
+    "test:map": "node --test tests/map-data.test.mjs",
+    "test:data": "node --test tests/real-static-data.test.mjs",
+    "test:client": "node --test tests/data-client.test.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",
