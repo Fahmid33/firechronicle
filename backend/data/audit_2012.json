@@ -1,0 +1,422 @@
+{
+  "export_format": "parquet",
+  "year": 2012,
+  "created_utc": "2026-11-12T06:10:29.553069+00:00",
+  "region_id": "BR-PA",
+  "source": {
+    "modis": {
+      "source_rows": 402205,
+      "selected_sensor_rows": 244689,
+      "para_rows": 41074,
+      "excluded_outside_para": 203615,
+      "source_versions": [
+        "6.2"
+      ],
+      "source_date_min": "2012-01-01",
+      "source_date_max": "2012-12-31",
+      "months_present": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12
+      ],
+      "periods_present": [
+        {
+          "month": 1,
+          "daynight": "D"
+        },
+        {
+          "month": 1,
+          "daynight": "N"
+        },
+        {
+          "month": 2,
+          "daynight": "D"
+        },
+        {
+          "month": 2,
+          "daynight": "N"
+        },
+        {
+          "month": 3,
+          "daynight": "D"
+        },
+        {
+          "month": 3,
+          "daynight": "N"
+        },
+        {
+          "month": 4,
+          "daynight": "D"
+        },
+        {
+          "month": 4,
+          "daynight": "N"
+        },
+        {
+          "month": 5,
+          "daynight": "D"
+        },
+        {
+          "month": 5,
+          "daynight": "N"
+        },
+        {
+          "month": 6,
+          "daynight": "D"
+        },
+        {
+          "month": 6,
+          "daynight": "N"
+        },
+        {
+          "month": 7,
+          "daynight": "D"
+        },
+        {
+          "month": 7,
+          "daynight": "N"
+        },
+        {
+          "month": 8,
+          "daynight": "D"
+        },
+        {
+          "month": 8,
+          "daynight": "N"
+        },
+        {
+          "month": 9,
+          "daynight": "D"
+        },
+        {
+          "month": 9,
+          "daynight": "N"
+        },
+        {
+          "month": 10,
+          "daynight": "D"
+        },
+        {
+          "month": 10,
+          "daynight": "N"
+        },
+        {
+          "month": 11,
+          "daynight": "D"
+        },
+        {
+          "month": 11,
+          "daynight": "N"
+        },
+        {
+          "month": 12,
+          "daynight": "D"
+        },
+        {
+          "month": 12,
+          "daynight": "N"
+        }
+      ]
+    },
+    "viirs_snpp": {
+      "source_rows": 1629511,
+      "selected_sensor_rows": 1629511,
+      "para_rows": 243498,
+      "excluded_outside_para": 1386013,
+      "source_versions": [
+        "2"
+      ],
+      "source_date_min": "2012-01-20",
+      "source_date_max": "2012-12-31",
+      "months_present": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12
+      ],
+      "periods_present": [
+        {
+          "month": 1,
+          "daynight": "D"
+        },
+        {
+          "month": 1,
+          "daynight": "N"
+        },
+        {
+          "month": 2,
+          "daynight": "D"
+        },
+        {
+          "month": 2,
+          "daynight": "N"
+        },
+        {
+          "month": 3,
+          "daynight": "D"
+        },
+        {
+          "month": 3,
+          "daynight": "N"
+        },
+        {
+          "month": 4,
+          "daynight": "D"
+        },
+        {
+          "month": 4,
+          "daynight": "N"
+        },
+        {
+          "month": 5,
+          "daynight": "D"
+        },
+        {
+          "month": 5,
+          "daynight": "N"
+        },
+        {
+          "month": 6,
+          "daynight": "D"
+        },
+        {
+          "month": 6,
+          "daynight": "N"
+        },
+        {
+          "month": 7,
+          "daynight": "D"
+        },
+        {
+          "month": 7,
+          "daynight": "N"
+        },
+        {
+          "month": 8,
+          "daynight": "D"
+        },
+        {
+          "month": 8,
+          "daynight": "N"
+        },
+        {
+          "month": 9,
+          "daynight": "D"
+        },
+        {
+          "month": 9,
+          "daynight": "N"
+        },
+        {
+          "month": 10,
+          "daynight": "D"
+        },
+        {
+          "month": 10,
+          "daynight": "N"
+        },
+        {
+          "month": 11,
+          "daynight": "D"
+        },
+        {
+          "month": 11,
+          "daynight": "N"
+        },
+        {
+          "month": 12,
+          "daynight": "D"
+        },
+        {
+          "month": 12,
+          "daynight": "N"
+        }
+      ]
+    }
+  },
+  "input_files": {
+    "modis_2012_Brazil.csv": {
+      "bytes": 31692432,
+      "sha256": "1a9887200ac2f76f1ff1d79a16f5ade89aa1e7496083fc6f9ca723d599c2f286"
+    },
+    "viirs-snpp_2012_Brazil.csv": {
+      "bytes": 129965118,
+      "sha256": "937889da5868c08b71c5965d78cea2a9d891c90dc1179918ce30996ed91740f2"
+    },
+    "PA_UF_2024.zip": {
+      "bytes": 4702425,
+      "sha256": "5ddadf2ef1e9900f159da422513844f819bf3447c41efffad1c05ae5df9adbd0"
+    }
+  },
+  "boundary": {
+    "source": "IBGE PA_UF_2024.zip",
+    "source_crs": "EPSG:4674",
+    "grid_crs": "EPSG:6933",
+    "block_size_m": 50000,
+    "origin_m": [
+      0,
+      0
+    ],
+    "edge_policy": "point intersects Par\u00e1 polygon",
+    "block_policy": "positive-area intersection with Par\u00e1",
+    "area_km2": 1245828.482772379
+  },
+  "rows": {
+    "canonical_grid": 568,
+    "master": 4663,
+    "sparse_ml": 4663,
+    "backend_monthly": 3081,
+    "coverage": 9326,
+    "full_panel_ml": 13632
+  },
+  "counts": {
+    "aqua_modis": 41074,
+    "snpp_viirs": 243498
+  },
+  "completeness": {
+    "evidence_rows": 48,
+    "archive_completeness_independently_verified": false,
+    "eligible_sensor_periods": 0,
+    "recorded_zero_conversions": {
+      "AQUA_MODIS": 0,
+      "SNPP_VIIRS": 0
+    },
+    "remaining_null_counts": {
+      "AQUA_MODIS": 11024,
+      "SNPP_VIIRS": 9114
+    },
+    "interpretation": "Zeros are recorded-detection zeros under documented archive-completeness assumptions, not verified fire-free or clear-sky observations. Without archive evidence, NULLs remain."
+  },
+  "coverage_status": "unknown",
+  "processing_status": "preliminary",
+  "schemas": {
+    "master": [
+      "region_id",
+      "block_id",
+      "block_ix",
+      "block_iy",
+      "year",
+      "month",
+      "daynight",
+      "modis_count",
+      "viirs_count",
+      "modis_frp_sum",
+      "viirs_frp_sum",
+      "coverage_status",
+      "processing_status",
+      "modis_source_version",
+      "viirs_source_version"
+    ],
+    "sparse_ml": [
+      "region_id",
+      "block_id",
+      "block_ix",
+      "block_iy",
+      "year",
+      "month",
+      "daynight",
+      "modis_count",
+      "viirs_count",
+      "coverage_status"
+    ],
+    "backend": [
+      "region_id",
+      "block_id",
+      "block_ix",
+      "block_iy",
+      "year",
+      "month",
+      "modis_aqua_count",
+      "viirs_snpp_count",
+      "ratio_viirs_to_modis",
+      "log_ratio",
+      "modis_frp_sum",
+      "viirs_frp_sum"
+    ],
+    "full_panel_ml": [
+      "region_id",
+      "block_id",
+      "block_ix",
+      "block_iy",
+      "year",
+      "month",
+      "daynight",
+      "modis_count",
+      "viirs_count",
+      "coverage_status"
+    ],
+    "coverage": [
+      "region_id",
+      "block_id",
+      "year",
+      "month",
+      "daynight",
+      "sensor",
+      "processing_status",
+      "coverage_status",
+      "source_product",
+      "source_version",
+      "observation_evidence",
+      "notes"
+    ]
+  },
+  "validation": {
+    "passed": true,
+    "positive_counts_preserved": true,
+    "no_duplicate_keys": true,
+    "all_blocks_have_24_periods": true,
+    "full_panel_complete": true,
+    "grid_568": true
+  },
+  "output_files": {
+    "backend_monthly_2012.parquet": {
+      "bytes": 71344,
+      "sha256": "e8011646daef78976180d264e78d7dc260d37506e4de5a052316d29a2da22610"
+    },
+    "coverage_para_2012.parquet": {
+      "bytes": 18399,
+      "sha256": "5af024041ce375f56758237f0144b42458656aeac6295e3975b06214c1e3289d"
+    },
+    "firechronicle_master_2012.parquet": {
+      "bytes": 69494,
+      "sha256": "e0f96b8b796602ca1d48b3553b78c19d737f38afaac42a112534ebd3857a8f30"
+    },
+    "overlap_training_2012.parquet": {
+      "bytes": 24792,
+      "sha256": "b8cad8746049463f1245c7c91af232cf57105be31427b22825344f1aae0c5661"
+    },
+    "overlap_training_full_panel_2012.parquet": {
+      "bytes": 24652,
+      "sha256": "20c88c379abd80b34bc8f3b296811f1f989593d8da8d02b537b913a2d104a003"
+    },
+    "para_50km_grid_canonical.parquet": {
+      "bytes": 6342,
+      "sha256": "e322d46c876bd5bfc8a15256ef4edf13c4444857e75e9ff6c78c71b253774b3c"
+    },
+    "para_50km_grid_geometry.parquet": {
+      "bytes": 31403,
+      "sha256": "eb14e5d9602f6808fe2a9b16a8bb16b6a937944c1868fe574e4d8f5c9e93c312"
+    },
+    "source_period_completeness_2012.csv": {
+      "bytes": 5347,
+      "sha256": "03b7e256593c4403fefca8695ccf3735306405645a5c6a799b7a388fb8b726cf"
+    }
+  }
+}

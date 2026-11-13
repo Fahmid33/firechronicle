@@ -1,0 +1,87 @@
+{
+  "model_version": "firechronicle-nb2-v1.0",
+  "model_type": "negative_binomial_nb2",
+  "scientific_status": "EMPIRICALLY_CALIBRATED_RESEARCH_SPECIFICATION",
+  "is_production_ready": true,
+  "trained_utc": "2026-11-12T13:12:53.978120+00:00",
+  "target": "VIIRS S-NPP-equivalent active fire hotspot detection count",
+  "region_id": "BR-PA",
+  "calibration_scale_km": 50,
+  "spatial_crs": "EPSG:6933",
+  "temporal_unit": "50 km block x calendar month x day/night pass",
+  "training_population": {
+    "description": "Clean paired-positive NASA FIRMS detections (modis_count > 0 and viirs_count > 0)",
+    "years": [
+      2012,
+      2013,
+      2014,
+      2015,
+      2016,
+      2017,
+      2018,
+      2019,
+      2020
+    ],
+    "exclusions": [
+      "January 2012 excluded due to S-NPP VIIRS operational launch truncation"
+    ],
+    "n_records": 23010,
+    "total_modis_detections": 342397,
+    "total_viirs_detections": 2072819,
+    "baseline_ratio_multiplier_k": 6.053846850293665
+  },
+  "dispersion_alpha": 0.3394298279543902,
+  "reference_month": 1,
+  "feature_schema": [
+    "const",
+    "log1p_modis",
+    "daynight_N",
+    "month_2",
+    "month_3",
+    "month_4",
+    "month_5",
+    "month_6",
+    "month_7",
+    "month_8",
+    "month_9",
+    "month_10",
+    "month_11",
+    "month_12"
+  ],
+  "fitted_coefficients_beta": {
+    "const": 1.2855561937816609,
+    "log1p_modis": 0.9849040580476872,
+    "daynight_N": 1.2438739985490617,
+    "month_2": -0.42800964059495283,
+    "month_3": -0.9660561936429222,
+    "month_4": -0.8434585594937773,
+    "month_5": -0.5790791188764951,
+    "month_6": -0.2367149315152634,
+    "month_7": 0.005949973031677108,
+    "month_8": 0.2815405705537599,
+    "month_9": 0.27713634247037683,
+    "month_10": 0.34843637634120894,
+    "month_11": 0.1959993661215996,
+    "month_12": 0.214384943888126
+  },
+  "convergence": {
+    "converged": true,
+    "log_likelihood": -105163.79012827307,
+    "aic": 210357.58025654615,
+    "bic": 210478.2355192916,
+    "nobs": 23010,
+    "df_model": 13,
+    "df_resid": 22996
+  },
+  "evaluation_provenance": {
+    "strategy_A_temporal_holdout": "Train 2012-2018, Test 2019-2020 (MAE=35.44, Dev=25.01, Bias=-11.50%)",
+    "strategy_B_geographic_holdout": "Train 80% blocks, Test 20% blocks (MAE=35.79, Dev=20.95, Bias=+4.55%)",
+    "verification_script": "model/evaluation/verify_reproducibility.py"
+  },
+  "scientific_limitations": [
+    "Trained strictly on paired-positive observations (modis_count > 0 and viirs_count > 0).",
+    "Conditional on Aqua MODIS detection: cannot infer fire activity where Aqua MODIS count is NULL or 0.",
+    "Historical estimates represent satellite-detectable equivalents, not ground-truth burned area or fire perimeters.",
+    "Unverified clear-sky telemetry: missing counts preserved as NULL, not confirmed zero fire activity."
+  ]
+}
