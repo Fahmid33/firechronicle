@@ -44,10 +44,10 @@ export function AnalysisPanel() {
       } else if (periodKey === "2002-07") {
         if (count !== null) {
           statusNotice = "Partial commissioning estimate (Aqua MODIS operational July 2002; complete D+N pair)";
-          coverageNote = "Operational commissioning month · Complete D+N pair";
+          coverageNote = "Complete D+N estimate (operational commissioning month)";
         } else {
-          statusNotice = "Single-pass or unobserved block (preserved as NULL under strict ALL)";
-          coverageNote = "No available estimated passes; observation coverage unknown";
+          statusNotice = "Incomplete D/N estimates (combined daynight=ALL value remains NULL)";
+          coverageNote = "Incomplete D/N estimates; combined value unavailable";
         }
       } else if (periodKey === "2012-01") {
         if (count !== null) {
@@ -60,20 +60,20 @@ export function AnalysisPanel() {
       } else if (count !== null) {
         statusNotice =
           year < 2012
-            ? "Estimated VIIRS-equivalent (Aqua MODIS → NB2 v1.0)"
+            ? "Estimated VIIRS-equivalent (Aqua MODIS → NB2 v1.0; complete D+N pair)"
             : "Recorded S-NPP VIIRS 375m detection count";
         coverageNote =
           year < 2012
-            ? "Precomputed estimate (complete Day+Night pass pair)"
+            ? "Complete D+N estimate"
             : "Recorded satellite observation (S-NPP VIIRS)";
       } else {
         statusNotice =
           year < 2012
-            ? "Single-pass or unobserved block (preserved as NULL under strict ALL)"
+            ? "Incomplete D/N estimates (combined daynight=ALL value remains NULL)"
             : "No detections / unobserved pass (NULL preserved, not zero)";
         coverageNote =
           year < 2012
-            ? "Single pass or unobserved (NULL preserved, not zero)"
+            ? "Incomplete D/N estimates; combined value unavailable"
             : "Unobserved / missing pass record";
       }
     }
@@ -86,8 +86,9 @@ export function AnalysisPanel() {
         coverageNote = "Unsupported period";
       } else if (periodKey === "2002-07" || (sw.status === "partial_observation" && year === 2002)) {
         statusNotice = "Partial observation (Aqua MODIS operational commissioning month; partial month coverage)";
+        const unobservedJuly = 568 - (sw.complete_pairs_count ?? 0) - (sw.single_pass_count ?? 0);
         coverageNote = sw.complete_pairs_count != null
-          ? `${sw.available_estimates_count} of ${sw.expected_passes ?? 1136} passes (${sw.complete_pairs_count} complete Day+Night pairs, ${sw.single_pass_count} single-pass)`
+          ? `${sw.available_estimates_count} of ${sw.expected_passes ?? 1136} passes (${sw.complete_pairs_count} complete Day+Night pairs, ${sw.single_pass_count} single-pass; ${unobservedJuly} blocks with no available estimated passes; observation coverage unknown)`
           : "Operational commissioning month (July 2002)";
       } else if (sw.status === "partial_observation") {
         statusNotice = "Partial observation (S-NPP launched; Jan 1–19 unobserved)";

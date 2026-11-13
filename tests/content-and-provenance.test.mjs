@@ -121,3 +121,17 @@ test('July 2002 and January 2012 partial status and values are synchronized in c
   assert.strictEqual(calJan12.status, 'partial_observation', 'January 2012 calendar status must be partial_observation');
   assert.strictEqual(calJan12.value, 445.0, 'January 2012 calendar value must be 445.0');
 });
+
+test('AnalysisPanel coverage semantics distinguish complete pairs from incomplete/unobserved estimates', () => {
+  const panelPath = join(root, 'src/components/layout/analysis-panel.tsx');
+  const content = readFileSync(panelPath, 'utf8');
+
+  // Verify block-level incomplete status
+  assert.ok(content.includes('Incomplete D/N estimates; combined value unavailable'), 'Must use truthful combined status for block-level nulls');
+  assert.ok(content.includes('Complete D+N estimate'), 'Must label non-null block estimates as complete D+N estimate');
+
+  // Verify statewide provenance distinguishes complete pairs, single-pass, and unobserved blocks
+  assert.ok(content.includes('complete Day+Night pairs'), 'Must report complete Day+Night pairs');
+  assert.ok(content.includes('single-pass'), 'Must report single-pass blocks');
+  assert.ok(content.includes('blocks with no available estimated passes; observation coverage unknown'), 'Must report unobserved blocks accurately');
+});
