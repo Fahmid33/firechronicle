@@ -203,7 +203,9 @@ export function CalendarShell() {
                           cellStatus === "unsupported_period"
                             ? `${MONTHS[mo - 1]} ${yr}: Pre-Aqua launch period (unsupported)`
                             : cellStatus === "partial_observation"
-                            ? `${MONTHS[mo - 1]} ${yr}: Partial launch observation (${cellVal?.toLocaleString()} VIIRS detections)`
+                            ? yr === 2002
+                              ? `${MONTHS[mo - 1]} ${yr}: Partial commissioning estimate (${cellVal?.toLocaleString()} VIIRS-equivalent detections; 37 complete pairs)`
+                              : `${MONTHS[mo - 1]} ${yr}: Partial launch observation (${cellVal?.toLocaleString()} VIIRS detections)`
                             : cellVal === null
                             ? `${MONTHS[mo - 1]} ${yr}: Unobserved / missing record (not verified zero)`
                             : `${MONTHS[mo - 1]} ${yr}: ${cellVal.toLocaleString()} detections (${cellType === "estimated" ? "Estimated VIIRS-equivalent" : "Observed VIIRS"})`;
@@ -255,7 +257,7 @@ export function CalendarShell() {
           </div>
           <div className="flex items-center gap-1.5">
             <span className="inline-block size-3 rounded border border-amber-400 bg-amber-500/20" />
-            <span>Partial Observation (Jan 2012)</span>
+            <span>Partial Observation / Commissioning (Jul 2002 & Jan 2012)</span>
           </div>
           <div className="flex items-center gap-1.5">
             <span className="inline-block size-3 rounded border border-muted/50 bg-muted/30" />

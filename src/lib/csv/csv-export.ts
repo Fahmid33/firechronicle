@@ -53,6 +53,7 @@ export function generateTimeSeriesCsv(options: CsvExportOptions): string {
   lines.push("# Scientific Integrity Rule: Aqua MODIS and S-NPP VIIRS detections are NEVER summed together.");
   lines.push("# Day/Night Policy: daynight column is labeled 'ALL'. At block level, D+N is valid only if both passes exist; at statewide level, totals sum only complete pairs.");
   lines.push("# Missing Data Policy: Pre-commissioning (Jan-Jun 2002) and missing passes are preserved as NULL (empty), NOT zero.");
+  lines.push('# Status Semantics: "ok" = verified full month; "partial_observation" = partial-month coverage / operational commissioning (Jul 2002, Jan 2012); "unsupported_period" = outside archive; "missing" = unobserved or missing pass record.');
   lines.push("# Model Specification: firechronicle-nb2-v1.0 (Negative Binomial GLM, alpha = 0.3394)");
   lines.push("#");
 
@@ -86,6 +87,10 @@ export function generateTimeSeriesCsv(options: CsvExportOptions): string {
       let status = ref.status;
       if (ref.status === "unsupported_period") {
         status = "unsupported_period";
+      } else if (yr === 2002 && mo === 7) {
+        status = val !== null ? "partial_observation" : "missing";
+      } else if (yr === 2012 && mo === 1) {
+        status = val !== null ? "partial_observation" : "missing";
       } else if (val === null) {
         status = "missing";
       } else if (ref.status === "partial_observation") {
@@ -138,6 +143,10 @@ export function generateTimeSeriesCsv(options: CsvExportOptions): string {
         modelVersion = "N/A (S-NPP VIIRS Direct Observation)";
       }
 
+      let swStatus = s.status;
+      if (yr === 2002 && mo === 7 && swStatus !== "unsupported_period") {
+        swStatus = "partial_observation";
+      }
       const row = [
         escapeCsv(regionId),
         escapeCsv("STATEWIDE"),
@@ -146,7 +155,7 @@ export function generateTimeSeriesCsv(options: CsvExportOptions): string {
         "ALL",
         escapeCsv(val !== null ? Number(val.toFixed(2)) : null),
         escapeCsv(valueType),
-        escapeCsv(s.status),
+        escapeCsv(swStatus),
         escapeCsv(unit),
         escapeCsv(modelVersion),
       ];

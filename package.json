@@ -7,14 +7,15 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "node --test tests/map-data.test.mjs tests/real-static-data.test.mjs tests/data-client.test.mjs tests/chart-transforms.test.mjs tests/csv-export.test.mjs tests/smoke-verification.mjs tests/daynight-contract.test.mjs",
+    "test": "node --test tests/map-data.test.mjs tests/real-static-data.test.mjs tests/data-client.test.mjs tests/chart-transforms.test.mjs tests/csv-export.test.mjs tests/smoke-verification.mjs tests/daynight-contract.test.mjs tests/content-and-provenance.test.mjs",
     "test:map": "node --test tests/map-data.test.mjs",
     "test:data": "node --test tests/real-static-data.test.mjs",
     "test:client": "node --test tests/data-client.test.mjs",
     "test:charts": "node --test tests/chart-transforms.test.mjs",
     "test:csv": "node --test tests/csv-export.test.mjs",
     "test:smoke": "node --test tests/smoke-verification.mjs",
-    "test:contract": "node --test tests/daynight-contract.test.mjs"
+    "test:contract": "node --test tests/daynight-contract.test.mjs",
+    "test:content": "node --test tests/content-and-provenance.test.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",

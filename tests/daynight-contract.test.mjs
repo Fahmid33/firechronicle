@@ -28,8 +28,11 @@ test('Priority 1: Backend daynight=ALL contract reconciliation', async (t) => {
   });
 
   await t.test('2. Statewide monthly series uses strict ALL as primary value while preserving available passes', () => {
-    const histMonths = tsRaw.series.filter(s => s.year < 2012 && s.status === 'ok');
+    const histMonths = tsRaw.series.filter(s => s.year < 2012 && (s.status === 'ok' || s.status === 'partial_observation'));
     assert.strictEqual(histMonths.length, 114, '114 historical operational months (2002-07 to 2011-12)');
+    const jul2002 = histMonths.find(m => m.period === '2002-07');
+    assert.strictEqual(jul2002?.status, 'partial_observation', '2002-07 must have partial_observation status');
+    assert.strictEqual(jul2002?.value, 3462.9, '2002-07 must preserve real estimated value of 3,462.9');
 
     let sumStrict = 0;
     let sumAvail = 0;

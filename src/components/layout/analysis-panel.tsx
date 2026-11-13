@@ -41,15 +41,40 @@ export function AnalysisPanel() {
       if (year === 2002 && month <= 6) {
         statusNotice = "Pre-commissioning period (Aqua MODIS launched July 2002)";
         coverageNote = "Unsupported period";
+      } else if (periodKey === "2002-07") {
+        if (count !== null) {
+          statusNotice = "Partial commissioning estimate (Aqua MODIS operational July 2002; complete D+N pair)";
+          coverageNote = "Operational commissioning month · Complete D+N pair";
+        } else {
+          statusNotice = "Single-pass or unobserved block (preserved as NULL under strict ALL)";
+          coverageNote = "Single pass or unobserved (NULL preserved, not zero)";
+        }
+      } else if (periodKey === "2012-01") {
+        if (count !== null) {
+          statusNotice = "Partial observation (S-NPP launched; Jan 1–19 unobserved)";
+          coverageNote = "Partial month coverage";
+        } else {
+          statusNotice = "Unobserved block (NULL preserved, not zero)";
+          coverageNote = "Unobserved / missing record";
+        }
       } else if (count !== null) {
         statusNotice =
           year < 2012
             ? "Estimated VIIRS-equivalent (Aqua MODIS → NB2 v1.0)"
             : "Recorded S-NPP VIIRS 375m detection count";
-        coverageNote = "Available pass observation";
+        coverageNote =
+          year < 2012
+            ? "Precomputed estimate (complete Day+Night pass pair)"
+            : "Recorded satellite observation (S-NPP VIIRS)";
       } else {
-        statusNotice = "No detections / unobserved pass (NULL preserved, not zero)";
-        coverageNote = "Unobserved / missing pass record";
+        statusNotice =
+          year < 2012
+            ? "Single-pass or unobserved block (preserved as NULL under strict ALL)"
+            : "No detections / unobserved pass (NULL preserved, not zero)";
+        coverageNote =
+          year < 2012
+            ? "Single pass or unobserved (NULL preserved, not zero)"
+            : "Unobserved / missing pass record";
       }
     }
   } else if (statewide?.series) {
@@ -59,15 +84,25 @@ export function AnalysisPanel() {
       if (sw.status === "unsupported_period") {
         statusNotice = "Pre-commissioning period (Aqua MODIS launched July 2002)";
         coverageNote = "Unsupported period";
+      } else if (periodKey === "2002-07" || (sw.status === "partial_observation" && year === 2002)) {
+        statusNotice = "Partial observation (Aqua MODIS operational commissioning month; partial month coverage)";
+        coverageNote = sw.complete_pairs_count != null
+          ? `${sw.available_estimates_count} of ${sw.expected_passes ?? 1136} passes (${sw.complete_pairs_count} complete Day+Night pairs, ${sw.single_pass_count} single-pass)`
+          : "Operational commissioning month (July 2002)";
       } else if (sw.status === "partial_observation") {
         statusNotice = "Partial observation (S-NPP launched; Jan 1–19 unobserved)";
         coverageNote = "Partial month coverage";
       } else if (count !== null) {
-        statusNotice =
-          year < 2012
-            ? `Estimated VIIRS-equivalent (${sw.available_estimates_count} positive passes)`
-            : "Recorded S-NPP VIIRS 375m statewide total";
-        coverageNote = `${sw.available_estimates_count} available passes`;
+        if (year < 2012) {
+          const pairsText = sw.complete_pairs_count != null ? `${sw.complete_pairs_count} complete D+N pairs` : "complete pairs";
+          statusNotice = `Estimated VIIRS-equivalent (${sw.available_estimates_count} of 1,136 available passes; ${pairsText})`;
+          coverageNote = sw.complete_pairs_count != null
+            ? `${sw.available_estimates_count} of ${sw.expected_passes ?? 1136} passes (${sw.complete_pairs_count} complete Day+Night pairs, ${sw.single_pass_count} single-pass)`
+            : `${sw.available_estimates_count} available passes`;
+        } else {
+          statusNotice = "Recorded S-NPP VIIRS 375m statewide total";
+          coverageNote = "Authoritative monthly satellite composite";
+        }
       } else {
         statusNotice = "No detections recorded (NULL preserved, not zero)";
         coverageNote = "Unobserved / missing record";

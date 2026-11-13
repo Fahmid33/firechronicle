@@ -8,9 +8,9 @@ export const FIRST_YEAR = 2002;
 export const LAST_YEAR = 2026;
 
 export const LAYERS: Record<DataLayer, { label: string; description: string; source: string; scale: string }> = {
-  observed: { label: "Observed", description: "Observed · S-NPP", source: "VIIRS S-NPP · finalized archive", scale: "Pending observed geometry" },
+  observed: { label: "Observed", description: "Observed · S-NPP", source: "VIIRS S-NPP · finalized archive", scale: "50 km canonical grid blocks (point locations pending live API)" },
   estimated: { label: "Estimated", description: "Estimated · historical extrapolation", source: "Historical Aqua MODIS → S-NPP-equivalent", scale: "50 km model calibration blocks" },
-  provisional: { label: "Provisional", description: "Provisional · NRT", source: "VIIRS S-NPP · near-real-time", scale: "Pending observed geometry" },
+  provisional: { label: "Provisional", description: "Provisional · NRT", source: "VIIRS S-NPP · near-real-time", scale: "Unconnected NRT layer (requires live API)" },
 };
 
 export function isEraCompatible(year: number, layer: DataLayer) {
