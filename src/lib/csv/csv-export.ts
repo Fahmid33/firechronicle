@@ -53,7 +53,7 @@ export function generateTimeSeriesCsv(options: CsvExportOptions): string {
   lines.push("# Scientific Integrity Rule: Aqua MODIS and S-NPP VIIRS detections are NEVER summed together.");
   lines.push("# Day/Night Policy: daynight column is labeled 'ALL'. At block level, D+N is valid only if both passes exist; at statewide level, totals sum only complete pairs.");
   lines.push("# Missing Data Policy: Pre-commissioning (Jan-Jun 2002) and missing passes are preserved as NULL (empty), NOT zero.");
-  lines.push('# Status Semantics: "ok" = verified full month; "partial_observation" = partial-month coverage / operational commissioning (Jul 2002, Jan 2012); "unsupported_period" = outside archive; "missing" = unobserved or missing pass record.');
+  lines.push('# Status Semantics: "ok" = computed value (not proof of complete satellite coverage); "insufficient_coverage" = zero complete Day+Night block pairs (NULL, not zero); "partial_observation" = partial-month coverage / operational commissioning (Jul 2002, Jan 2012); "unsupported_period" = outside archive; "missing" = unobserved or missing pass record.');
   lines.push("# Model Specification: firechronicle-nb2-v1.0 (Negative Binomial GLM, alpha = 0.3394)");
   lines.push("#");
 
@@ -130,8 +130,9 @@ export function generateTimeSeriesCsv(options: CsvExportOptions): string {
     statewide.series.forEach((s) => {
       const yr = s.year;
       const mo = s.month;
-      const val = s.value;
-      const valueType = s.value_type ?? "";
+      const insufficient = yr < 2012 && (s.status === "insufficient_coverage" || s.complete_pairs_count === 0);
+      const val = insufficient ? null : s.value;
+      const valueType = insufficient ? "" : (s.value_type ?? "");
       let unit = "";
       let modelVersion = "";
 
@@ -143,7 +144,7 @@ export function generateTimeSeriesCsv(options: CsvExportOptions): string {
         modelVersion = "N/A (S-NPP VIIRS Direct Observation)";
       }
 
-      let swStatus = s.status;
+      let swStatus = insufficient ? "insufficient_coverage" : s.status;
       if (yr === 2002 && mo === 7 && swStatus !== "unsupported_period") {
         swStatus = "partial_observation";
       }

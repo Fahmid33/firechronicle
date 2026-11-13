@@ -93,6 +93,11 @@ export function AnalysisPanel() {
       } else if (sw.status === "partial_observation") {
         statusNotice = "Partial observation (S-NPP launched; Jan 1–19 unobserved)";
         coverageNote = "Partial month coverage";
+      } else if (sw.status === "insufficient_coverage" || (year < 2012 && sw.complete_pairs_count === 0)) {
+        count = null;
+        statusNotice = "Insufficient coverage — no complete Day+Night block pairs; no valid combined total";
+        const noPassBlocks = 568 - (sw.single_pass_count ?? 0);
+        coverageNote = `0 complete pairs; ${sw.single_pass_count ?? 0} single-pass blocks; ${noPassBlocks} blocks with no available estimates. NULL is not zero.`;
       } else if (count !== null) {
         if (year < 2012) {
           const pairsText = sw.complete_pairs_count != null ? `${sw.complete_pairs_count} complete D+N pairs` : "complete pairs";

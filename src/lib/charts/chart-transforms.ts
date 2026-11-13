@@ -11,7 +11,7 @@ export interface TimelineDataPoint {
   estimatedViirs: number | null;
   observedViirs: number | null;
   observedModis: number | null;
-  status: "ok" | "unsupported_period" | "partial_observation" | "missing";
+  status: "ok" | "unsupported_period" | "partial_observation" | "missing" | "insufficient_coverage";
   valueType: "estimated" | "observed" | null;
   passes?: number | null;
 }
@@ -88,18 +88,20 @@ export function buildTimelineData(
     const yrShort = String(p.year).slice(-2);
     const isHist = p.year < 2012;
 
+    const insufficient = isHist && (p.status === "insufficient_coverage" || p.complete_pairs_count === 0);
+
     return {
       period: p.period,
       year: p.year,
       month: p.month,
       label: `${monthName.slice(0, 3)} '${yrShort}`,
       fullLabel: `${monthName} ${p.year}`,
-      value: p.value,
-      estimatedViirs: isHist && p.estimated_viirs_count !== null ? p.estimated_viirs_count : null,
+      value: insufficient ? null : p.value,
+      estimatedViirs: isHist && !insufficient && p.estimated_viirs_count !== null ? p.estimated_viirs_count : null,
       observedViirs: !isHist && p.observed_viirs_count !== null ? p.observed_viirs_count : null,
       observedModis: p.observed_modis_count,
-      status: p.status,
-      valueType: p.value_type,
+      status: insufficient ? "insufficient_coverage" : p.status,
+      valueType: insufficient ? null : p.value_type,
       passes: p.available_estimates_count,
     };
   });

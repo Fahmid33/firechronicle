@@ -199,6 +199,8 @@ export function MonthlyTimelineChart({ data, scope, blockId }: Props) {
                         <div className="text-muted-foreground/70 italic">
                           Pre-commissioning period (Aqua MODIS launched July 2002). No satellite observations.
                         </div>
+                      ) : pt.status === "insufficient_coverage" ? (
+                        <div className="text-amber-200 italic">Insufficient coverage — zero complete Day+Night pairs; statewide count unavailable (not zero).</div>
                       ) : pt.status === "missing" || pt.value === null ? (
                         <div className="text-muted-foreground/70 italic">
                           No detections / missing pass record (NULL preserved, not verified zero).

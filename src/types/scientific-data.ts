@@ -10,7 +10,7 @@ export const MonthlySeriesItemSchema = z.object({
   period: z.string().regex(/^\d{4}-\d{2}$/),
   value: z.number().nullable(),
   value_type: z.enum(["estimated", "observed"]).nullable(),
-  status: z.enum(["ok", "unsupported_period", "partial_observation", "missing"]),
+  status: z.enum(["ok", "unsupported_period", "partial_observation", "missing", "insufficient_coverage"]),
   coverage_status: z.string(),
   measurement_unit: z.string().nullable(),
   expected_passes: z.number().int().optional(),
@@ -67,7 +67,7 @@ export const CalendarMonthItemSchema = z.object({
   period: z.string(),
   value: z.number().nullable(),
   value_type: z.enum(["estimated", "observed"]).nullable(),
-  status: z.enum(["ok", "unsupported_period", "partial_observation", "missing"]),
+  status: z.enum(["ok", "unsupported_period", "partial_observation", "missing", "insufficient_coverage"]),
   measurement_unit: z.string().nullable(),
   coverage_notice: z.string().optional(),
 });

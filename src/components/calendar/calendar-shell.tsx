@@ -42,6 +42,9 @@ export function CalendarShell() {
 
   // Color calculation based on value type and magnitude
   function getCellStyle(value: number | null, valueType: "estimated" | "observed" | null, status: string) {
+    if (status === "insufficient_coverage") {
+      return { bg: "bg-amber-500/10 border-amber-500/30 text-amber-200", label: "Insufficient coverage" };
+    }
     if (status === "unsupported_period" || value === null && status === "missing") {
       return {
         bg: "bg-muted/30 border-muted/50 text-muted-foreground/40",
@@ -206,6 +209,8 @@ export function CalendarShell() {
                             ? yr === 2002
                               ? `${MONTHS[mo - 1]} ${yr}: Partial commissioning estimate (${cellVal?.toLocaleString()} VIIRS-equivalent detections; 37 complete pairs)`
                               : `${MONTHS[mo - 1]} ${yr}: Partial launch observation (${cellVal?.toLocaleString()} VIIRS detections)`
+                            : cellStatus === "insufficient_coverage"
+                            ? `${MONTHS[mo - 1]} ${yr}: Insufficient coverage — zero complete Day+Night pairs (NULL, not zero)`
                             : cellVal === null
                             ? `${MONTHS[mo - 1]} ${yr}: Unobserved / missing record (not verified zero)`
                             : `${MONTHS[mo - 1]} ${yr}: ${cellVal.toLocaleString()} detections (${cellType === "estimated" ? "Estimated VIIRS-equivalent" : "Observed VIIRS"})`;

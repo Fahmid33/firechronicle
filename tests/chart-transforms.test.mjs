@@ -54,7 +54,9 @@ test('chart data transformations preserve nulls and calculate era aggregates', a
     const histPoints = timeline.filter(p => p.month === m && p.year >= 2003 && p.year <= 2011 && p.value !== null);
     // Modern points exclude partial observation 2012-01 (Jan 1-19 unobserved)
     const modernPoints = timeline.filter(p => p.month === m && p.year >= 2012 && p.year <= 2020 && p.value !== null && p.status !== 'partial_observation');
-    assert.strictEqual(histPoints.length, 9, `Month ${m} must have 9 historical years (2003-2011)`);
+    const expectedHistoricalYears = { 2: 5, 3: 2, 4: 1, 5: 6 }[m] ?? 9;
+    assert.strictEqual(histPoints.length, expectedHistoricalYears,
+      `Month ${m} must count only years with valid complete Day+Night pairs`);
     const expectedModernYears = m === 1 ? 8 : 9;
     assert.strictEqual(modernPoints.length, expectedModernYears, `Month ${m} must have ${expectedModernYears} modern years (Jan 2012 partial excluded)`);
   }

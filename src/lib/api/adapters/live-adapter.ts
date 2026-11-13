@@ -42,7 +42,7 @@ interface RawBackendHarmonizedItem {
   observed_modis_count?: number | null;
   value_type?: "estimated" | "observed" | null;
   prediction_status?: string;
-  status?: "ok" | "unsupported_period" | "partial_observation" | "missing";
+  status?: "ok" | "unsupported_period" | "partial_observation" | "missing" | "insufficient_coverage";
   coverage_status?: string;
   measurement_unit?: string | null;
   model_version?: string;
@@ -185,7 +185,7 @@ export class LiveApiAdapter implements IDataClient {
         item.prediction_status === "missing_required_feature" ||
         item.prediction_status === "insufficient_coverage"
       ) {
-        status = "missing";
+        status = item.prediction_status === "insufficient_coverage" ? "insufficient_coverage" : "missing";
       } else if (
         item.value === null &&
         item.estimated_viirs_count === null &&
@@ -196,7 +196,7 @@ export class LiveApiAdapter implements IDataClient {
 
       // Compute primary value
       let value: number | null = null;
-      if (status !== "unsupported_period" && status !== "missing") {
+      if (status !== "unsupported_period" && status !== "missing" && status !== "insufficient_coverage") {
         if (item.value !== undefined && item.value !== null) {
           value = item.value;
         } else if (isHist) {

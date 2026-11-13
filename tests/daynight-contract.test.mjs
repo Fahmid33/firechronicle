@@ -28,7 +28,7 @@ test('Priority 1: Backend daynight=ALL contract reconciliation', async (t) => {
   });
 
   await t.test('2. Statewide monthly series uses strict ALL as primary value while preserving available passes', () => {
-    const histMonths = tsRaw.series.filter(s => s.year < 2012 && (s.status === 'ok' || s.status === 'partial_observation'));
+    const histMonths = tsRaw.series.filter(s => s.year < 2012 && (s.status === 'ok' || s.status === 'partial_observation' || s.status === 'insufficient_coverage'));
     assert.strictEqual(histMonths.length, 114, '114 historical operational months (2002-07 to 2011-12)');
     const jul2002 = histMonths.find(m => m.period === '2002-07');
     assert.strictEqual(jul2002?.status, 'partial_observation', '2002-07 must have partial_observation status');
@@ -42,6 +42,14 @@ test('Priority 1: Backend daynight=ALL contract reconciliation', async (t) => {
     for (const m of histMonths) {
       assert.strictEqual(m.value, m.strict_both_passes_value, `Month ${m.period}: primary value must match strict_both_passes_value`);
       assert.ok(m.available_passes_value >= m.strict_both_passes_value, `Month ${m.period}: available pass sum must be >= strict sum`);
+      if (m.complete_pairs_count === 0) {
+        assert.strictEqual(m.value, null, `${m.period}: no complete pairs must mean NULL`);
+        assert.strictEqual(m.status, 'insufficient_coverage', `${m.period}: missing coverage status`);
+        assert.strictEqual(m.estimated_viirs_count, null);
+        assert.strictEqual(m.strict_both_passes_value, null);
+      } else {
+        assert.notStrictEqual(m.value, null, `${m.period}: expected valid strict total`);
+      }
       assert.strictEqual(typeof m.complete_pairs_count, 'number');
       assert.strictEqual(typeof m.single_pass_count, 'number');
 
@@ -51,6 +59,11 @@ test('Priority 1: Backend daynight=ALL contract reconciliation', async (t) => {
       sumSinglePasses += m.single_pass_count;
     }
 
+    assert.strictEqual(histMonths.filter(m => m.status === 'insufficient_coverage').length, 22, 'Exactly 22 historical months have no complete D+N pairs');
+    const march2004 = histMonths.find(m => m.period === '2004-03');
+    assert.strictEqual(march2004?.value, null);
+    assert.strictEqual(march2004?.status, 'insufficient_coverage');
+    assert.strictEqual(march2004?.single_pass_count, 20);
     assert.strictEqual(sumCompletePairs, 6516, 'Sum of complete pairs must be 6,516');
     assert.strictEqual(sumSinglePasses, 13930, 'Sum of single passes must be 13,930');
     assert.ok(Math.abs(sumStrict - 2874515.5) < 1.0, `Sum of strict monthly values (${sumStrict.toFixed(1)}) must match ~2,874,515.5`);
