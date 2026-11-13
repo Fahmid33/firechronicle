@@ -95,6 +95,9 @@ venv/
 *.tsbuildinfo
 next-env.d.ts
 
+# scratch files
+scratch/
+
 # Backend Python, Models & Large Parquet Datasets
 .venv/
 __pycache__/

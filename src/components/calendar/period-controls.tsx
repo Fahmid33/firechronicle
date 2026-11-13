@@ -16,7 +16,7 @@ export function PeriodControls() {
   }
   return <section aria-label="Observation period controls" className="rounded-xl border border-border bg-card p-4">
     <div className="flex flex-wrap items-center justify-between gap-4">
-      <div className="flex items-center gap-3"><CalendarDays className="size-5 text-primary" aria-hidden="true" /><div><h2 className="text-sm font-medium">Observation period</h2><p className="mt-1 text-xs text-muted-foreground">Explore time. Availability pending.</p></div></div>
+      <div className="flex items-center gap-3"><CalendarDays className="size-5 text-primary" aria-hidden="true" /><div><h2 className="text-sm font-medium">Observation period</h2><p className="mt-1 text-xs text-muted-foreground">2002–2020 verified archive · 2021+ pending data</p></div></div>
       <div className="flex flex-wrap items-end gap-2">
         <Button variant="ghost" size="icon" className="size-11" aria-label="Previous month" disabled={year === FIRST_YEAR && month === 1} onClick={() => move(-1)}><ChevronLeft /></Button>
         <div className="space-y-1"><label id="month-label" className="block text-xs text-muted-foreground">Month</label><Select value={String(month)} onValueChange={v => v && setPeriod(year, Number(v))}><SelectTrigger aria-labelledby="month-label" className="h-11 min-w-32 data-[size=default]:h-11"><SelectValue>{MONTHS[month - 1]}</SelectValue></SelectTrigger><SelectContent alignItemWithTrigger={false}>{MONTHS.map((name, i) => <SelectItem className="min-h-11" key={name} value={String(i + 1)}>{name}</SelectItem>)}</SelectContent></Select></div>

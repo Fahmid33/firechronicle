@@ -64,6 +64,6 @@ export function DashboardShell({ children }: { children: ReactNode }) {
       </aside>
       <main id="main-content" tabIndex={-1} className="min-w-0 flex-1 p-4 outline-none lg:p-6">{children}</main>
     </div>
-    <footer className="flex flex-wrap items-center justify-between gap-2 border-t border-border px-4 py-3 text-xs text-muted-foreground md:px-6"><span>FireChronicle <span className="px-1">/</span> NASA Space Apps Challenge 2026</span><span>Pará only · Scientific data integration pending</span></footer>
+    <footer className="flex flex-wrap items-center justify-between gap-2 border-t border-border px-4 py-3 text-xs text-muted-foreground md:px-6"><span>FireChronicle <span className="px-1">/</span> NASA Space Apps Challenge 2026</span><span>Pará (BR-PA) · Static demo mode (live API backend integration pending)</span></footer>
   </TooltipProvider></SelectionProvider>;
 }

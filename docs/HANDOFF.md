@@ -132,4 +132,63 @@ The remaining blocker is scientific data delivery, not basemap interactivity. No
 - No official-data selection or coverage completeness claim is made; those tests require the remaining upstream handoffs.
 
 
-Camera correction verified on 12 November 2026: initial load and Reset View now share the Pará fallback camera (`[-52.5, -3.5]`, zoom `5.2`) after resize. Verified geometry still takes priority via fitBounds with viewport-aware padding. Period/layer changes do not reframe the map, and navigation resizing preserves its center. Plain scroll zoom is enabled. Chrome confirmed exact camera coordinates, drag/scroll/button interactions, mobile sizing and attribution without runtime/hydration errors. Lint, standalone TypeScript, production build and all nine map tests pass. The official polygon and real block geometry remain pending; no scientific data or dashboard redesign was introduced.
+Camera correction verified on 12 November 2026: initial load and Reset View now share the Pará fallback camera (`[-52.5, -3.5]`, zoom `5.2`) after resize. Verified geometry still takes priority via fitBounds with viewport-aware padding. Period/layer changes do not reframe the map, and navigation resizing preserves its center. Plain scroll zoom is enabled. Chrome confirmed exact camera coordinates, drag/scroll/button interactions, mobile sizing and attribution without runtime/hydration errors. Lint, standalone TypeScript, production build and all nine map tests pass.
+
+---
+
+## Completed Frontend Implementation & Acceptance (13 November 2026)
+
+All outstanding scientific data, official geometry, typed adapters, visual analytics, map layers, and export functionality have been completed, verified, and integrated into `feature/frontend-demo`:
+
+### 1. Official Geometry & Quantitative Geospatial Map
+- **Official IBGE 2024 Boundary**: Transformed directly from verified shapefile `PA_UF_2024.zip` (SHA-256: `5ddadf2e...`) to EPSG:4326 GeoJSON MultiPolygon (35 parts, 6,559 vertices). Validated against `boundaryIsUsable()`.
+- **568 Canonical 50 km Blocks**: Transformed from `para_50km_grid_geometry.parquet` using pure-Python inverse EPSG:6933 Lambert Cylindrical Equal Area equations (WGS 84 / NSIDC EASE-Grid 2.0 Global to EPSG:4326). Validated against `resolveMapData()`.
+- **Quantitative Month-Specific Choropleth**: All 568 blocks dynamically reflect month-specific detection counts (`MAP_IDS.blockFill`).
+  - Warm Amber ramp for Historical Estimated Era (2002–2011).
+  - Emerald Green ramp for Modern Observed Era (2012–2020).
+  - Neutral transparent borders for unobserved/missing passes (preserved NULL, never zero).
+  - Hover tooltip displays exact block ID, detection count, and measurement tier.
+  - Interactive selection updates Zustand `selectedBlock`, synchronizing map, charts, calendar, and sidebar.
+
+### 2. Multi-Decadal Calendar Heatmap (`/time-machine`)
+- Full 19-year × 12-month matrix (2002–2020 · 228 monthly cells).
+- Jan–Jun 2002 styled as unsupported (pre-commissioning period, NULL preserved).
+- July 2002 badged as partial operational coverage.
+- January 2012 badged as partial VIIRS observation (days 1–19 unobserved).
+- Interactive period synchronization and Statewide vs. Block toggle.
+
+### 3. Recharts Visual Analytics Suite
+- **Monthly Multi-Decadal Timeline**: Preserved NULLs (`connectNulls={false}`), vertical 2012 era transition line, optional Aqua MODIS raw context curve with strict no-summation notice.
+- **12-Month Seasonal Climatology**: Historical era (2003–2011) vs modern era (2012–2020) monthly averages, Amazonian dry season peak (Aug–Nov). Caveat clearly documented: visual consistency reflects fitted $\beta_{\text{month}}$ fixed effects, not independent historical validation.
+- **Annual Totals Chart**: 19-year totals highlighting historical drought years (2004, 2005, 2007, 2010) and distinct partial year 2002.
+- **Sensor Lab Model Validation Card (`/sensor-lab`)**: Authoritative, split-specific metrics from `validation_metrics_final_nb2.json`:
+  - Strategy A Temporal Holdout: NB2 MAE 35.44, Poisson deviance 25.01 (54.8% reduction vs baseline).
+  - Strategy B Geographic Holdout: NB2 MAE 35.79, Poisson deviance 20.95 (62.8% reduction vs baseline).
+  - Architecture: Negative Binomial NB2, log link, dispersion $\alpha = 0.3394$, $k = 6.0538$, N=23,010 paired-positive training records.
+
+### 4. Typed Data Access Layer & Mode Switching
+- Shared `DataClient` interface with 3 pluggable adapters:
+  - `StaticJsonAdapter`: Reads precomputed static JSON under `public/data/` (Node `fs` for SSR/prerender, `fetch` for browser).
+  - `LiveApiAdapter`: Connects to FastAPI backend (`/api/v1/...`), strictly throws `ApiHttpError` on failure (never silently falls back to synthetic fixtures).
+  - `MockAdapter`: Synthetic fixtures stamped with visible `DEVELOPMENT / SYNTHETIC` watermarks.
+- Mode resolution: `NEXT_PUBLIC_DATA_MODE` (`static` | `live` | `synthetic`) -> `NEXT_PUBLIC_USE_MOCKS` -> default `static`.
+
+### 5. RFC 4180 CSV Export
+- One-click export for Statewide Pará or selected 50 km block.
+- Columns: `region_id,block_id,year,month,daynight,value,value_type,status,measurement_unit,model_version`.
+- Exact 228 monthly rows with preserved NULLs and `daynight="ALL"`.
+
+### 6. Automated Verification Status
+- `npm test`: 19/19 tests passing across map data, static data schemas, client adapters, chart transforms, and CSV export.
+- `npm run test:map`: 9/9 focused map & geometry tests passing.
+- `npm run lint`: 0 errors, 0 warnings.
+- `npx tsc --noEmit`: 0 type errors.
+- `npm run build`: Production Next.js build prerenders all 4 routes (`/`, `/time-machine`, `/sensor-lab`, `/methodology`).
+
+### 7. Vercel Deployment Readiness
+- Pre-configured for deployment with zero build overrides.
+- Recommended production environment variables:
+  ```dotenv
+  NEXT_PUBLIC_DATA_MODE=static
+  ```
+- Public demo target: `https://firechronicle.vercel.app` (awaiting user authorization to push and publish).
