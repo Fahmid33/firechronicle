@@ -1,0 +1,17 @@
+# Python environment
+.venv/
+__pycache__/
+*.pyc
+
+# Environment variables (Secrets)
+.env
+.env.local
+
+# Database and Cache
+*.duckdb
+*.wal
+
+# Large Data files
+data/*.parquet
+data/real/
+data/staging_nb2/

@@ -97,3 +97,16 @@ next-env.d.ts
 
 # scratch files
 scratch/
+
+# Backend Python, Models & Large Parquet Datasets
+.venv/
+__pycache__/
+*.pyc
+.env
+.env.local
+*.duckdb
+*.wal
+*.joblib
+backend/data/*.parquet
+backend/data/real/
+backend/data/staging_nb2/
