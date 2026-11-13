@@ -26,6 +26,13 @@ test('Methodology page content accurately reflects connected scientific data and
   assert.ok(content.includes('NEXT_PUBLIC_DATA_MODE=static'), 'Must cite static demonstration mode');
   assert.ok(content.includes('LiveApiAdapter'), 'Must cite LiveApiAdapter integration status');
   assert.ok(content.includes('daynight=ALL'), 'Must document strict daynight=ALL contract');
+
+  // Verify authoritative metrics directly matching validation_metrics_final_nb2.json
+  assert.ok(content.includes('20.95'), 'Must cite authoritative geographic holdout Poisson deviance 20.95');
+  assert.ok(content.includes('25.01'), 'Must cite authoritative temporal holdout Poisson deviance 25.01');
+  assert.ok(content.includes('0.994'), 'Must cite authoritative geographic holdout correlation 0.994');
+  assert.ok(!content.includes('11.23'), 'Must not cite obsolete deviance 11.23');
+  assert.ok(!content.includes('0.887'), 'Must not cite obsolete R2 0.887');
 });
 
 test('Status labels throughout UI distinguish verified data from pending layers', () => {
@@ -77,9 +84,11 @@ test('August 2005 historical coverage terminology and counts are strictly verifi
   assert.strictEqual(aug05.value, 161940.5, 'Strict ALL statewide value must be 161,940.5');
   assert.strictEqual(aug05.available_passes_value, 169376.6, 'Available passes statewide sum must be 169,376.6');
 
-  // Mathematical consistency
+  // Mathematical consistency and terminology
   assert.strictEqual(aug05.complete_pairs_count * 2 + aug05.single_pass_count, aug05.available_estimates_count, '177*2 + 163 must equal 517 passes');
   assert.strictEqual(aug05.complete_pairs_count + aug05.single_pass_count + 228, 568, '177 + 163 + 228 must equal 568 total blocks');
+  assert.ok(aug05.completeness_notice.includes('228 blocks with no available estimated passes; observation coverage unknown'), 'August 2005 completeness notice must explicitly document 228 blocks with no available estimated passes');
+  assert.ok(!aug05.completeness_notice.includes('zero detections'), 'Must not describe unobserved blocks as zero detections');
 });
 
 test('July 2002 and January 2012 partial status and values are synchronized in calendar and statewide series', () => {

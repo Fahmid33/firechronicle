@@ -119,12 +119,15 @@ export default function Methodology() {
           <CardContent className="space-y-3 text-sm leading-relaxed text-muted-foreground">
             <p>
               The production model is a Negative Binomial GLM (<code>firechronicle-nb2-v1.0</code>, dispersion{" "}
-              &alpha; = 0.3394), validated against independent spatial block holdouts and complete-year test sets.
+              &alpha; = 0.3394), calibrated on 23,010 paired-positive observations ($M &gt; 0$ and $V &gt; 0$) across
+              the 2012–2020 overlap period.
             </p>
             <p>
-              Split-specific metrics confirm stability: out-of-sample block holdout achieves R&sup2; = 0.887 and
-              Poisson deviance 11.23, outperforming Poisson and ratio-of-totals baselines. Sensor Lab validation
-              metrics are active and connected.
+              Authoritative split-specific validation on held-out partitions confirms stability: the 94-block grouped
+              geographic holdout (N = 5,147 test records across held-out 50 km blocks) achieves a mean Poisson deviance of
+              20.95 (vs. 56.35 for the ratio baseline) and monthly correlation of 0.994. The prospective temporal holdout
+              (2019–2020, N = 5,091) achieves a mean deviance of 25.01 (vs. 55.31 baseline) with monthly R&sup2; = 0.915.
+              Full split-specific metrics are accessible in Sensor Lab.
             </p>
           </CardContent>
         </Card>

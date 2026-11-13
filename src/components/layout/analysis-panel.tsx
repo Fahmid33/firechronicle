@@ -47,7 +47,7 @@ export function AnalysisPanel() {
           coverageNote = "Operational commissioning month · Complete D+N pair";
         } else {
           statusNotice = "Single-pass or unobserved block (preserved as NULL under strict ALL)";
-          coverageNote = "Single pass or unobserved (NULL preserved, not zero)";
+          coverageNote = "No available estimated passes; observation coverage unknown";
         }
       } else if (periodKey === "2012-01") {
         if (count !== null) {
@@ -96,8 +96,9 @@ export function AnalysisPanel() {
         if (year < 2012) {
           const pairsText = sw.complete_pairs_count != null ? `${sw.complete_pairs_count} complete D+N pairs` : "complete pairs";
           statusNotice = `Estimated VIIRS-equivalent (${sw.available_estimates_count} of 1,136 available passes; ${pairsText})`;
+          const unobservedBlocks = 568 - (sw.complete_pairs_count ?? 0) - (sw.single_pass_count ?? 0);
           coverageNote = sw.complete_pairs_count != null
-            ? `${sw.available_estimates_count} of ${sw.expected_passes ?? 1136} passes (${sw.complete_pairs_count} complete Day+Night pairs, ${sw.single_pass_count} single-pass)`
+            ? `${sw.available_estimates_count} of ${sw.expected_passes ?? 1136} passes (${sw.complete_pairs_count} complete Day+Night pairs, ${sw.single_pass_count} single-pass; ${unobservedBlocks} blocks with no available estimated passes; observation coverage unknown)`
             : `${sw.available_estimates_count} available passes`;
         } else {
           statusNotice = "Recorded S-NPP VIIRS 375m statewide total";
