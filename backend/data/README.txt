@@ -1,0 +1,1 @@
+FireChronicle 2012 Pará exports. Source: Brazil NASA FIRMS Aqua MODIS and S-NPP VIIRS CSVs; IBGE Pará 2024 boundary. Coverage unverified; zeros only if completeness evidence explicitly authorizes them. See audit_2012.json.
